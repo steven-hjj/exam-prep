@@ -88,8 +88,8 @@ export function SideToolPanel({ mode, timeLeft, timeUrgent, violationCount, answ
           {buttons}
         </div>
       </div>
-      {/* 移动端：底部居中悬浮横排 */}
-      <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 lg:hidden">
+      {/* 移动端：底部居中悬浮横排（抬高避免被 AppLayout 底部导航遮住） */}
+      <div className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 lg:hidden">
         <div className="flex flex-row items-center gap-1.5 rounded-2xl border bg-card/95 p-1.5 shadow-lg backdrop-blur">
           {buttons}
         </div>

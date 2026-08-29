@@ -23,6 +23,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { CHANGELOG } from '@/data/changelog'
 import { useAuth } from '@/lib/auth'
 import { useStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
 
 const NAV = [
   { to: '/', label: '学习总览', icon: LayoutDashboard },
@@ -146,8 +147,8 @@ export function AppLayout() {
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
           <SidebarTrigger className="cursor-pointer" />
-          <Separator orientation="vertical" className="h-5" />
-          <p className="hidden text-sm text-muted-foreground sm:block">题库 / 练习 / 考试 / 错题闭环</p>
+          <Separator orientation="vertical" className="hidden h-5 sm:block" />
+          <p className="hidden text-sm text-muted-foreground md:block">题库 / 练习 / 考试 / 错题闭环</p>
           <div className="ml-auto flex items-center gap-2">
             {/* 更新公告 */}
             <Sheet>
@@ -217,11 +218,41 @@ export function AppLayout() {
             )}
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 sm:px-6 md:pb-6">
           <Outlet />
         </main>
       </SidebarInset>
       <Toaster richColors position="top-center" />
+
+      {/* 手机底部快捷导航 */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex items-center justify-around px-1 py-1.5">
+          {NAV.slice(0, 5).map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[10px] transition-colors',
+                  isActive
+                    ? 'font-semibold text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', isActive ? 'bg-primary/10' : '')}>
+                    <Icon className="h-[18px] w-[18px]" />
+                  </div>
+                  <span>{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </SidebarProvider>
   )
 }

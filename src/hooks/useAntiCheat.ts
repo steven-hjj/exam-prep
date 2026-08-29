@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { Violation } from '@/types'
 
 interface AntiCheatOptions {
@@ -33,6 +34,7 @@ export function useAntiCheat({ enabled, fullscreen = false, maxSeriousViolations
   const violationsRef = useRef<Violation[]>([])
   const onViolationRef = useRef(onViolation)
   const onForceSubmitRef = useRef(onForceSubmit)
+  const isMobile = useIsMobile()
   onViolationRef.current = onViolation
   onForceSubmitRef.current = onForceSubmit
 
@@ -58,13 +60,25 @@ export function useAntiCheat({ enabled, fullscreen = false, maxSeriousViolations
     const mountTs = Date.now()
     const isWarmup = () => Date.now() - mountTs < 1200
 
+    // 页面切出：手机上控制中心、截图、临时通知会先触发 hidden，很快又 visible。
+    // 只在离开持续超过 1.5 秒后才记违规；短于一律忽略。
+    let hiddenAt = 0
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden' && !isWarmup()) {
-        push(make('hidden', '页面切出（切换标签页或最小化）'))
+      if (document.visibilityState === 'hidden') {
+        if (isWarmup()) return
+        hiddenAt = Date.now()
+      } else {
+        if (!hiddenAt) return
+        const duration = Date.now() - hiddenAt
+        hiddenAt = 0
+        if (duration < 1500) return
+        push(make('hidden', '页面切出（切换应用或最小化）'))
       }
     }
+    // 窗口失焦在手机上非常敏感（下拉通知、调出输入法、侧边软件都会触发），移动端忽略 blur，只依赖 visibilitychange
     const onBlur = () => {
-      if (!isWarmup()) push(make('blur', '窗口失焦（可能切换到其他应用）'))
+      if (isMobile || isWarmup()) return
+      push(make('blur', '窗口失焦（可能切换到其他应用）'))
     }
     const onCopy = (e: ClipboardEvent) => {
       e.preventDefault()
