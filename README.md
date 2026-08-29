@@ -4,7 +4,7 @@
 
 ## 在线地址
 
-- GitHub Pages（固定地址）：`https://cdredfox.github.io/exam-prep`
+- GitHub Pages（固定地址）：`https://sbhuajiajinyyds-rgb.github.io/exam-prep`
 - 备用 CloudStudio：`https://58294f35c5224d61bf8914a6356c8d81.app.workbuddy.link`
 
 ## 技术栈
@@ -57,7 +57,7 @@ git init
 git add .
 git commit -m "init"
 git branch -M main
-git remote add origin https://github.com/cdredfox/exam-prep.git
+git remote add origin https://github.com/sbhuajiajinyyds-rgb/exam-prep.git
 git push -u origin main
 ```
 
