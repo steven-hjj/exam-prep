@@ -189,7 +189,7 @@ function ImportDialog({ bank, onDone }: { bank: Bank; onDone: () => void }) {
               </span>
               <span className="text-xs text-muted-foreground">共 {batchProgress.pages} 页 · 每批约 20~60 秒</span>
             </div>
-            <Progress value={Math.round((batchProgress.current / batchProgress.total) * 100)} className="h-2" />
+            <Progress value={Math.round(((batchProgress.current - 1) / batchProgress.total) * 100)} className="h-2" />
             <p className="text-xs text-muted-foreground">识别期间请勿关闭此窗口，完成后自动进入审核界面</p>
           </div>
         )}
