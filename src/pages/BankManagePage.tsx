@@ -55,6 +55,46 @@ const TYPE_ICON: Record<QuestionType, typeof CircleDot> = {
   essay: FileText,
 }
 
+/**
+ * 自适应切分 PDF 页面：按 base64 图片大小控制每批大致相等，
+ * 避免小题量试卷被切成很多批，也防止单批图片过大超时。
+ */
+function splitPagesIntoBatches(pages: string[], maxBatchBytes = 1_800_000, maxPagesPerBatch = 5): string[][] {
+  if (pages.length === 0) return []
+  const pageBytes = pages.map((p) => p.length)
+  const totalBytes = pageBytes.reduce((a, b) => a + b, 0)
+  // 少量页面且总体不大时，一次识别完体验最好
+  if (pages.length <= 6 && totalBytes <= 3_000_000) return [pages]
+
+  const batches: string[][] = []
+  let current: string[] = []
+  let currentBytes = 0
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i]
+    const pb = pageBytes[i]
+    // 当前批次已满足上限，或加入后明显超出目标大小，则开新批次
+    if (current.length > 0 && (current.length >= maxPagesPerBatch || currentBytes + pb > maxBatchBytes)) {
+      batches.push(current)
+      current = []
+      currentBytes = 0
+    }
+    current.push(page)
+    currentBytes += pb
+  }
+  if (current.length > 0) batches.push(current)
+
+  // 如果最后一批特别小（<20% 目标大小），把它合并到前一批，减少无意义的额外请求
+  if (batches.length > 1) {
+    const last = batches[batches.length - 1]
+    const lastBytes = last.reduce((a, p) => a + p.length, 0)
+    if (lastBytes < maxBatchBytes * 0.2 && last.length <= 2) {
+      batches.pop()
+      batches[batches.length - 1].push(...last)
+    }
+  }
+  return batches
+}
+
 function answerText(q: { type: QuestionType; answer: string | string[] }): string {
   if (q.type === 'judge') return q.answer === 'true' ? '正确' : '错误'
   return Array.isArray(q.answer) ? q.answer.join(q.type === 'fill' ? ' | ' : '、') : String(q.answer)
@@ -101,26 +141,28 @@ function ImportDialog({ bank, onDone }: { bank: Bank; onDone: () => void }) {
       if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
         finish(await parseExcelFile(await file.arrayBuffer(), bank.id))
       } else if (ext === 'pdf') {
-        // 一律渲染为图片后由服务端 AI 分批识别：每批 2 页，避免请求过大/超时/输出截断
+        // 一律渲染为图片后由服务端 AI 分批识别：按图片大小自适应切分，避免过度分批
         setAiBusy(true)
         try {
           const pages = await renderPdfPages(await file.arrayBuffer())
-          const batchSize = 2
-          const batches = Math.ceil(pages.length / batchSize)
+          const pageBatches = splitPagesIntoBatches(pages)
+          const batches = pageBatches.length
           const allQuestions: ParseResult['questions'] = []
           const allErrors: string[] = []
-          for (let i = 0; i < pages.length; i += batchSize) {
-            const batchNo = Math.floor(i / batchSize) + 1
-            setBatchProgress({ current: batchNo, total: batches, pages: pages.length })
-            const startPage = i + 1
-            const endPage = Math.min(i + batchSize, pages.length)
-            const context = `本次为试卷第 ${startPage}-${endPage} 页（共 ${pages.length} 页中的第 ${batchNo}/${batches} 批）`
+          let consumedPages = 0
+          for (let batchNo = 0; batchNo < pageBatches.length; batchNo++) {
+            const batchPages = pageBatches[batchNo]
+            const startPage = consumedPages + 1
+            const endPage = consumedPages + batchPages.length
+            consumedPages += batchPages.length
+            setBatchProgress({ current: batchNo + 1, total: batches, pages: pages.length })
+            const context = `本次为试卷第 ${startPage}-${endPage} 页（共 ${pages.length} 页中的第 ${batchNo + 1}/${batches} 批）`
             const sourceHint = `${file.name} 第 ${startPage}-${endPage} 页`
-            const result = await aiExtractQuestionsFromImages(pages.slice(i, i + batchSize), bank.id, context, sourceHint)
+            const result = await aiExtractQuestionsFromImages(batchPages, bank.id, context, sourceHint)
             if (result.questions.length === 0 && result.errors.length === 0) {
-              toast.warning(`第 ${batchNo}/${batches} 批（第 ${startPage}-${endPage} 页）未识别到任何题目`)
+              toast.warning(`第 ${batchNo + 1}/${batches} 批（第 ${startPage}-${endPage} 页）未识别到任何题目`)
             }
-            result.errors.forEach((e) => toast.warning(`第 ${batchNo} 批错误：${e}`))
+            result.errors.forEach((e) => toast.warning(`第 ${batchNo + 1} 批错误：${e}`))
             allQuestions.push(...result.questions)
             allErrors.push(...result.errors)
           }
