@@ -203,11 +203,22 @@ function ImportDialog({ bank, onDone }: { bank: Bank; onDone: () => void }) {
     }
   }
 
+  const busy = aiBusy || parsing
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        // 识别/解析进行中时禁止点外部关闭，避免用户误触后找不到进度
+        if (busy && !nextOpen) return
+        setOpen(nextOpen)
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="sm" className="cursor-pointer">
-          <Upload className="mr-1.5 h-4 w-4" /> 上传题目
+        <Button size="sm" className="cursor-pointer relative">
+          {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin text-amber-500" /> : <Upload className="mr-1.5 h-4 w-4" />}
+          {busy ? '识别中…' : '上传题目'}
+          {busy && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" aria-hidden="true" />}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl">

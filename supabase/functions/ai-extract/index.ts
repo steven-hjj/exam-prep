@@ -28,6 +28,49 @@ const SYSTEM_PROMPT = `你是试卷题目结构化助手。用户会给你若干
 4. 图片/图形题：在题干中用 [图] 标注位置
 5. 按试卷原始题号顺序输出，不要遗漏任何题目`
 
+/** 从模型回复中稳健提取最外层 JSON 数组（去掉 markdown 代码块、处理嵌套括号） */
+function extractJsonArray(reply: string): string | null {
+  // 先去掉 markdown 代码块标记（保留内部内容）
+  const cleaned = reply
+    .replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1')
+    .replace(/`([^`]*)`/g, '$1')
+    .trim()
+
+  const start = cleaned.indexOf('[')
+  if (start === -1) return null
+
+  let depth = 0
+  let inString = false
+  let escape = false
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (ch === '\\' && inString) {
+      escape = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+    if (!inString) {
+      if (ch === '[') depth++
+      else if (ch === ']') {
+        depth--
+        if (depth === 0) return cleaned.slice(start, i + 1)
+      }
+    }
+  }
+
+  // 兜底：如果括号没配平，取第一个 '[' 到最后一个 ']'
+  const end = cleaned.lastIndexOf(']')
+  if (end > start) return cleaned.slice(start, end + 1)
+  return null
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') {
@@ -138,28 +181,37 @@ Deno.serve(async (req: Request) => {
     }), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } })
   }
 
-  const match = reply.match(/\[[\s\S]*\]/)
-  if (!match) {
+  // 从模型回复中稳健地提取最外层 JSON 数组
+  const jsonText = extractJsonArray(reply)
+  if (!jsonText) {
     return new Response(JSON.stringify({
       error: 'AI 未返回有效题目 JSON',
-      modelReply: reply.slice(0, 800),
+      modelReply: reply.slice(0, 1200),
       diag: { ...diag, url },
     }), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } })
   }
 
-  // JSON 解析：严格 → 修复 LaTeX 反斜杠 → 失败回传原文
+  // JSON 解析：严格 → 清理常见格式问题 → 修复 LaTeX 反斜杠 → 失败回传原文
   let questions: unknown
   try {
-    questions = JSON.parse(match[0])
+    questions = JSON.parse(jsonText)
   } catch {
     try {
-      const repaired = match[0].replace(/\\([a-zA-Z])/g, '\\\\$1')
+      const repaired = jsonText
+        // 去掉行尾注释
+        .replace(/\/\/[^\n]*/g, '')
+        // 修复未转义的单引号：把 JSON 字符串里的 ' 换成 \'
+        .replace(/(?<=: ?')[^'\n]*'/g, (m) => m.replace(/'$/, "\\'"))
+        // 修复 LaTeX 单反斜杠：\frac -> \\frac
+        .replace(/\\([a-zA-Z])/g, '\\\\$1')
+        // 去掉对象/数组末尾多余逗号
+        .replace(/,(\s*[}\]])/g, '$1')
       questions = JSON.parse(repaired)
     } catch (secondErr) {
       return new Response(JSON.stringify({
         error: '题目 JSON 解析失败',
         detail: String(secondErr),
-        modelReply: match[0].slice(0, 1500),
+        modelReply: jsonText.slice(0, 2000),
         diag: { ...diag, url },
       }), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } })
     }
