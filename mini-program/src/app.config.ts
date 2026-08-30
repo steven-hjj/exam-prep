@@ -3,6 +3,7 @@ export default defineAppConfig({
     'pages/index/index',
     'pages/exam/index',
     'pages/result/index',
+    'pages/review/index',
   ],
   window: {
     backgroundTextStyle: 'light',

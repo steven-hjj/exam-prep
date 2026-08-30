@@ -45,7 +45,11 @@ export default function ResultPage() {
         )}
       </View>
 
-      <Button className="btn btn-primary mt-6" onClick={() => Taro.reLaunch({ url: '/pages/index/index' })}>
+      <Button className="btn btn-primary mt-6" onClick={() => Taro.navigateTo({ url: '/pages/review/index' })}>
+        查看解析
+      </Button>
+
+      <Button className="btn mt-4" onClick={() => Taro.reLaunch({ url: '/pages/index/index' })}>
         返回首页
       </Button>
     </View>

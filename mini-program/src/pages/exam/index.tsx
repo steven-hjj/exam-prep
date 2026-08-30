@@ -4,7 +4,7 @@ import Taro from '@tarojs/taro'
 import type { ExamSession, AnswerMap, Question, Violation } from '@/types'
 import { gradeQuestion, isObjective } from '@/types'
 import { submitExamResult } from '@/lib/supabase'
-import { getStudentInfo, saveLocalResult } from '@/lib/store'
+import { getStudentInfo, saveLocalResult, saveReviewData } from '@/lib/store'
 import QuestionRender from '@/components/QuestionRender'
 import './index.css'
 
@@ -135,6 +135,14 @@ export default function ExamPage() {
         finishedAt: Date.now(),
       }
       saveLocalResult(result)
+      saveReviewData({
+        session,
+        answers,
+        correct,
+        duration,
+        violations: violations.length,
+        finishedAt: Date.now(),
+      })
       const ok = await submitExamResult(result, session.teacherId)
       setSubmitting(false)
       Taro.removeStorageSync('current_session')

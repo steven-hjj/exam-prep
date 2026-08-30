@@ -1,7 +1,33 @@
 import Taro from '@tarojs/taro'
-import type { ExamResultRow } from '@/types'
+import type { ExamResultRow, ExamSession, AnswerMap } from '@/types'
 
 const RESULTS_KEY = 'exam_results_local'
+const REVIEW_KEY = 'exam_review_data'
+
+export interface ReviewData {
+  session: ExamSession
+  answers: AnswerMap
+  correct: number
+  duration: number
+  violations: number
+  finishedAt: number
+}
+
+export function saveReviewData(data: ReviewData): void {
+  Taro.setStorageSync(REVIEW_KEY, data)
+}
+
+export function getReviewData(): ReviewData | null {
+  try {
+    return Taro.getStorageSync(REVIEW_KEY) || null
+  } catch {
+    return null
+  }
+}
+
+export function clearReviewData(): void {
+  Taro.removeStorageSync(REVIEW_KEY)
+}
 
 export function saveLocalResult(result: Omit<ExamResultRow, 'id'>): void {
   const list = getLocalResults()
