@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import { useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 
 interface MathTextProps {
   text: string
@@ -8,6 +8,8 @@ interface MathTextProps {
 }
 
 const CODECOGS_URL = 'https://latex.codecogs.com/svg.image?'
+const INLINE_IMAGE_HEIGHT = '36rpx'
+const INLINE_IMAGE_MARGIN = '4rpx'
 
 function renderMathUrl(latex: string, displayMode = false): string {
   const size = displayMode ? '\\displaystyle' : '\\inline'
@@ -54,7 +56,52 @@ function parseSegments(text: string): Segment[] {
   return segments
 }
 
-export default function MathText({ text, inline = true, fontSize = '32rpx' }: MathTextProps) {
+interface MathImageProps {
+  latex: string
+  displayMode?: boolean
+  fallback: string
+}
+
+function MathImage({ latex, displayMode = false, fallback }: MathImageProps) {
+  const [error, setError] = useState(false)
+  const url = useMemo(() => renderMathUrl(latex, displayMode), [latex, displayMode])
+
+  if (error) {
+    return <Text style={{ fontSize: '32rpx', lineHeight: '1.6' }}>{fallback}</Text>
+  }
+
+  if (displayMode) {
+    return (
+      <View style={{ width: '100%', textAlign: 'center', marginTop: '12rpx', marginBottom: '12rpx' }}>
+        <Image
+          src={url}
+          mode="widthFix"
+          style={{ maxWidth: '100%', height: 'auto' }}
+          lazyLoad
+          onError={() => setError(true)}
+        />
+      </View>
+    )
+  }
+
+  return (
+    <Image
+      src={url}
+      mode="heightFix"
+      style={{
+        height: INLINE_IMAGE_HEIGHT,
+        width: 'auto',
+        verticalAlign: 'middle',
+        marginLeft: INLINE_IMAGE_MARGIN,
+        marginRight: INLINE_IMAGE_MARGIN,
+      }}
+      lazyLoad
+      onError={() => setError(true)}
+    />
+  )
+}
+
+export default memo(function MathText({ text, inline = true, fontSize = '32rpx' }: MathTextProps) {
   const segments = useMemo(() => parseSegments(text), [text])
 
   if (!text) return null
@@ -69,29 +116,15 @@ export default function MathText({ text, inline = true, fontSize = '32rpx' }: Ma
             </Text>
           )
         }
-        const url = renderMathUrl(seg.content, seg.displayMode)
-        if (seg.displayMode) {
-          return (
-            <View key={i} style={{ width: '100%', textAlign: 'center', marginTop: '12rpx', marginBottom: '12rpx' }}>
-              <Image
-                src={url}
-                mode="widthFix"
-                style={{ maxWidth: '100%', height: 'auto' }}
-                lazyLoad
-              />
-            </View>
-          )
-        }
         return (
-          <Image
+          <MathImage
             key={i}
-            src={url}
-            mode="heightFix"
-            style={{ height: '36rpx', width: 'auto', verticalAlign: 'middle', marginLeft: '4rpx', marginRight: '4rpx' }}
-            lazyLoad
+            latex={seg.content}
+            displayMode={seg.displayMode}
+            fallback={`$${seg.content}$`}
           />
         )
       })}
     </View>
   )
-}
+})

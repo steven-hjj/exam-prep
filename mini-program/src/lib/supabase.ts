@@ -9,6 +9,9 @@ const headers = {
   Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
 }
 
+const REQUEST_TIMEOUT = 15000
+const MAX_RETRY = 3
+
 function getAuthHeaders() {
   return headers
 }
@@ -18,14 +21,36 @@ function getAuthHeaders() {
  * 这里用 Taro.request 直接调 Supabase REST API。
  */
 
+// 简单缓存：同一考试码 5 分钟内不重复请求
+const sessionCache = new Map<string, { data: ExamSession; expiry: number }>()
+const CACHE_TTL = 5 * 60 * 1000
+
+function getCachedSession(code: string): ExamSession | null {
+  const cached = sessionCache.get(code)
+  if (!cached) return null
+  if (Date.now() > cached.expiry) {
+    sessionCache.delete(code)
+    return null
+  }
+  return cached.data
+}
+
+function setCachedSession(code: string, data: ExamSession): void {
+  sessionCache.set(code, { data, expiry: Date.now() + CACHE_TTL })
+}
+
 export async function fetchSessionByCode(code: string): Promise<ExamSession | null> {
+  const cached = getCachedSession(code)
+  if (cached) return cached
+
   try {
     const res = await Taro.request({
       url: `${SUPABASE_URL}/rest/v1/exam_sessions?code=eq.${encodeURIComponent(code)}&select=*`,
       method: 'GET',
       header: getAuthHeaders(),
+      timeout: REQUEST_TIMEOUT,
     })
-    console.log('fetchSessionByCode response', res.statusCode, typeof res.data, res.data)
+
     let data: unknown = res.data
     if (typeof data === 'string') {
       try {
@@ -34,15 +59,20 @@ export async function fetchSessionByCode(code: string): Promise<ExamSession | nu
         return null
       }
     }
+
     if (res.statusCode !== 200 || !Array.isArray(data) || data.length === 0) {
       return null
     }
+
     const row = data[0] as Record<string, unknown>
-    return {
+    const session = {
       ...row,
       paper: row.paper as Question[],
       createdAt: new Date(row.created_at as string).getTime(),
     } as ExamSession
+
+    setCachedSession(code, session)
+    return session
   } catch (e) {
     console.error('fetchSessionByCode error', e)
     return null
@@ -63,7 +93,7 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId
     finished_at: new Date(row.finishedAt).toISOString(),
   }
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
     try {
       const res = await Taro.request({
         url: `${SUPABASE_URL}/rest/v1/exam_results`,
@@ -73,19 +103,21 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId
           'Content-Type': 'application/json',
         },
         data: payload,
-        timeout: 15000,
+        timeout: REQUEST_TIMEOUT,
       })
-      console.log('submitExamResult response', res.statusCode, res.data)
+
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return true
       }
+
       if (res.statusCode >= 400 && res.statusCode < 500) {
         // 4xx 错误不重试
+        console.error('submitExamResult client error', res.statusCode, res.data)
         return false
       }
     } catch (e) {
       console.error(`submitExamResult attempt ${attempt} error`, e)
-      if (attempt === 3) return false
+      if (attempt === MAX_RETRY) return false
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
     }
   }

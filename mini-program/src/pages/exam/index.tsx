@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ExamSession, AnswerMap, Question, Violation } from '@/types'
@@ -7,6 +7,14 @@ import { submitExamResult } from '@/lib/supabase'
 import { getStudentInfo, saveLocalResult } from '@/lib/store'
 import QuestionRender from '@/components/QuestionRender'
 import './index.css'
+
+function formatTime(sec: number): string {
+  const m = Math.floor(sec / 60)
+    .toString()
+    .padStart(2, '0')
+  const s = (sec % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
 
 export default function ExamPage() {
   const [session, setSession] = useState<ExamSession | null>(null)
@@ -64,59 +72,68 @@ export default function ExamPage() {
     }).length ?? 0
   }, [answers, session])
 
-  const handleAnswer = (value: string | string[]) => {
-    if (!currentQuestion) return
-    setAnswers({ ...answers, [currentQuestion.id]: value })
-  }
+  const handleAnswer = useCallback(
+    (value: string | string[]) => {
+      if (!currentQuestion) return
+      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
+    },
+    [currentQuestion],
+  )
 
-  const handleSubmit = async (forced = false) => {
-    if (!session) return
-    if (!forced) {
-      const res = await Taro.showModal({
-        title: '确认交卷',
-        content: `已答 ${answeredCount}/${session.paper.length} 题，确定交卷？`,
-      })
-      if (!res.confirm) return
-    }
-
-    setSubmitting(true)
-    const info = getStudentInfo()
-    let correct = 0
-    session.paper.forEach((q) => {
-      if (isObjective(q) && gradeQuestion(q, answers[q.id])) {
-        correct += 1
+  const handleSubmit = useCallback(
+    async (forced = false) => {
+      if (!session) return
+      if (!forced) {
+        const res = await Taro.showModal({
+          title: '确认交卷',
+          content: `已答 ${answeredCount}/${session.paper.length} 题，确定交卷？`,
+        })
+        if (!res.confirm) return
       }
-    })
-    const duration = Math.floor((Date.now() - startAt) / 1000)
-    const result: Parameters<typeof saveLocalResult>[0] = {
-      sessionCode: session.code,
-      studentName: info.name,
-      studentId: info.studentId,
-      studentPhone: info.phone,
-      total: session.paper.length,
-      correct,
-      duration,
-      violations,
-      finishedAt: Date.now(),
-    }
-    saveLocalResult(result)
-    const ok = await submitExamResult(result, session.teacherId)
-    setSubmitting(false)
-    Taro.removeStorageSync('current_session')
-    Taro.redirectTo({
-      url: `/pages/result/index?total=${session.paper.length}&correct=${correct}&duration=${duration}&synced=${ok ? 1 : 0}`,
-    })
-  }
+
+      setSubmitting(true)
+      const info = getStudentInfo()
+      let correct = 0
+      session.paper.forEach((q) => {
+        if (isObjective(q) && gradeQuestion(q, answers[q.id])) {
+          correct += 1
+        }
+      })
+      const duration = Math.floor((Date.now() - startAt) / 1000)
+      const result: Parameters<typeof saveLocalResult>[0] = {
+        sessionCode: session.code,
+        studentName: info.name,
+        studentId: info.studentId,
+        studentPhone: info.phone,
+        total: session.paper.length,
+        correct,
+        duration,
+        violations,
+        finishedAt: Date.now(),
+      }
+      saveLocalResult(result)
+      const ok = await submitExamResult(result, session.teacherId)
+      setSubmitting(false)
+      Taro.removeStorageSync('current_session')
+      Taro.redirectTo({
+        url: `/pages/result/index?total=${session.paper.length}&correct=${correct}&duration=${duration}&synced=${ok ? 1 : 0}`,
+      })
+    },
+    [session, answeredCount, answers, startAt, violations],
+  )
+
+  const goPrev = useCallback(() => {
+    setCurrentIndex((i) => Math.max(0, i - 1))
+  }, [])
+
+  const goNext = useCallback(() => {
+    if (!session) return
+    setCurrentIndex((i) => Math.min(session.paper.length - 1, i + 1))
+  }, [session])
 
   if (!session) return null
 
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60)
-      .toString()
-      .padStart(2, '0')
-    const s = (sec % 60).toString().padStart(2, '0')
-    return `${m}:${s}`
-  }
+  const isLastQuestion = currentIndex === session.paper.length - 1
 
   return (
     <View className="exam-page">
@@ -146,20 +163,20 @@ export default function ExamPage() {
           <Button
             className="btn footer-btn"
             disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex(currentIndex - 1)}
+            onClick={goPrev}
           >
             上一题
           </Button>
           <Text className="text-muted" style={{ fontSize: '26rpx' }}>
             {currentIndex + 1}/{session.paper.length} 已答 {answeredCount}
           </Text>
-          {currentIndex < session.paper.length - 1 ? (
-            <Button className="btn btn-primary footer-btn" onClick={() => setCurrentIndex(currentIndex + 1)}>
-              下一题
-            </Button>
-          ) : (
+          {isLastQuestion ? (
             <Button className="btn btn-danger footer-btn" loading={submitting} disabled={submitting} onClick={() => handleSubmit(false)}>
               交卷
+            </Button>
+          ) : (
+            <Button className="btn btn-primary footer-btn" onClick={goNext}>
+              下一题
             </Button>
           )}
         </View>

@@ -1,4 +1,5 @@
 import { View, Text, Label, RadioGroup, Radio, CheckboxGroup, Checkbox, Input, Textarea } from '@tarojs/components'
+import { memo, useCallback } from 'react'
 import type { Question } from '@/types'
 import MathText from '@/components/MathText'
 
@@ -11,43 +12,113 @@ interface Props {
   onChange: (value: string | string[]) => void
 }
 
-export default function QuestionRender({ question, index, value, onChange }: Props) {
+interface OptionItemProps {
+  label: string
+  text: string
+  value: string
+  checked?: boolean
+  type: 'radio' | 'checkbox'
+}
+
+const OptionItem = memo(function OptionItem({ label, text, value, checked, type }: OptionItemProps) {
+  const isRadio = type === 'radio'
+  const Component = isRadio ? Radio : Checkbox
+
+  return (
+    <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
+      <Component value={value} checked={checked} />
+      <View style={{ marginLeft: '12rpx', flex: 1 }}>
+        <MathText text={`${label}. ${text}`} fontSize="30rpx" />
+      </View>
+    </Label>
+  )
+})
+
+export default memo(function QuestionRender({ question, index, value, onChange }: Props) {
   const q = question
+
+  const handleSingleChange = useCallback(
+    (e: { detail: { value: string } }) => {
+      onChange(e.detail.value)
+    },
+    [onChange],
+  )
+
+  const handleMultipleChange = useCallback(
+    (e: { detail: { value: string[] } }) => {
+      onChange(e.detail.value)
+    },
+    [onChange],
+  )
+
+  const handleFillChange = useCallback(
+    (index: number, newValue: string) => {
+      const vals = Array.isArray(value) ? [...value] : []
+      vals[index] = newValue
+      onChange(vals)
+    },
+    [value, onChange],
+  )
+
+  const handleEssayChange = useCallback(
+    (e: { detail: { value: string } }) => {
+      onChange(e.detail.value)
+    },
+    [onChange],
+  )
 
   const renderOptions = () => {
     if (!q.options || q.options.length === 0) return null
+
     if (q.type === 'single') {
       return (
-        <RadioGroup onChange={(e) => onChange(e.detail.value)}>
+        <RadioGroup onChange={handleSingleChange}>
           {q.options.map((opt, i) => (
-            <LabelRadio key={i} label={OPTION_LABEL[i]} text={opt} value={OPTION_LABEL[i]} checked={value === OPTION_LABEL[i]} />
+            <OptionItem
+              key={i}
+              label={OPTION_LABEL[i]}
+              text={opt}
+              value={OPTION_LABEL[i]}
+              checked={value === OPTION_LABEL[i]}
+              type="radio"
+            />
           ))}
         </RadioGroup>
       )
     }
+
     if (q.type === 'multiple') {
       const selected = Array.isArray(value) ? value : []
       return (
-        <CheckboxGroup onChange={(e) => onChange(e.detail.value)}>
+        <CheckboxGroup onChange={handleMultipleChange}>
           {q.options.map((opt, i) => (
-            <LabelCheckbox key={i} label={OPTION_LABEL[i]} text={opt} value={OPTION_LABEL[i]} checked={selected.includes(OPTION_LABEL[i])} />
+            <OptionItem
+              key={i}
+              label={OPTION_LABEL[i]}
+              text={opt}
+              value={OPTION_LABEL[i]}
+              checked={selected.includes(OPTION_LABEL[i])}
+              type="checkbox"
+            />
           ))}
         </CheckboxGroup>
       )
     }
+
     return null
   }
 
   const renderJudge = () => (
-    <RadioGroup onChange={(e) => onChange(e.detail.value)}>
-      <LabelRadio label="对" text="正确" value="true" checked={value === 'true'} />
-      <LabelRadio label="错" text="错误" value="false" checked={value === 'false'} />
+    <RadioGroup onChange={handleSingleChange}>
+      <OptionItem label="对" text="正确" value="true" checked={value === 'true'} type="radio" />
+      <OptionItem label="错" text="错误" value="false" checked={value === 'false'} type="radio" />
     </RadioGroup>
   )
 
   const renderFill = () => {
     const count = Array.isArray(q.answer) ? q.answer.length : 1
     const vals = Array.isArray(value) ? value : Array(count).fill('')
+
     return (
       <View>
         {Array.from({ length: count }).map((_, i) => (
@@ -56,11 +127,7 @@ export default function QuestionRender({ question, index, value, onChange }: Pro
             className="input mt-2"
             placeholder={`第 ${i + 1} 空答案`}
             value={vals[i] || ''}
-            onInput={(e) => {
-              const next = [...vals]
-              next[i] = e.detail.value
-              onChange(next)
-            }}
+            onInput={(e) => handleFillChange(i, e.detail.value)}
           />
         ))}
       </View>
@@ -73,7 +140,7 @@ export default function QuestionRender({ question, index, value, onChange }: Pro
       style={{ height: '200rpx', paddingTop: '16rpx', paddingBottom: '16rpx' }}
       placeholder="请在此输入作答内容"
       value={typeof value === 'string' ? value : ''}
-      onInput={(e) => onChange(e.detail.value)}
+      onInput={handleEssayChange}
     />
   )
 
@@ -90,26 +157,4 @@ export default function QuestionRender({ question, index, value, onChange }: Pro
       {q.type === 'essay' && renderEssay()}
     </View>
   )
-}
-
-function LabelRadio({ label, text, value, checked }: { label: string; text: string; value: string; checked?: boolean }) {
-  return (
-    <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
-      <Radio value={value} checked={checked} />
-      <View style={{ marginLeft: '12rpx', flex: 1 }}>
-        <MathText text={`${label}. ${text}`} fontSize="30rpx" />
-      </View>
-    </Label>
-  )
-}
-
-function LabelCheckbox({ label, text, value, checked }: { label: string; text: string; value: string; checked?: boolean }) {
-  return (
-    <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
-      <Checkbox value={value} checked={checked} />
-      <View style={{ marginLeft: '12rpx', flex: 1 }}>
-        <MathText text={`${label}. ${text}`} fontSize="30rpx" />
-      </View>
-    </Label>
-  )
-}
+})
