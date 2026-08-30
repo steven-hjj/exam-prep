@@ -171,17 +171,10 @@ export default function ExamPage() {
     (value: string | string[]) => {
       if (!currentQuestion) return
 
-      // 检测答题过快（少于 1 秒，且连续 3 次才记录）
+      // 检测答题过快（仅记录，不算违规）
       const elapsed = Date.now() - questionStartAt.current
       if (elapsed < 1000) {
         fastAnswerCount.current += 1
-        if (fastAnswerCount.current >= 3) {
-          setViolations((v) => [
-            ...v,
-            { type: 'fast-answer', label: '连续多题答题过快', time: Date.now() },
-          ])
-          fastAnswerCount.current = 0
-        }
       } else {
         fastAnswerCount.current = 0
       }
