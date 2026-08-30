@@ -50,31 +50,44 @@ export async function fetchSessionByCode(code: string): Promise<ExamSession | nu
 }
 
 export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId: string): Promise<boolean> {
-  try {
-    const res = await Taro.request({
-      url: `${SUPABASE_URL}/rest/v1/exam_results`,
-      method: 'POST',
-      header: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
-      data: {
-        session_code: row.sessionCode,
-        teacher_id: teacherId,
-        student_name: row.studentName,
-        student_id: row.studentId,
-        student_phone: row.studentPhone || null,
-        total: row.total,
-        correct: row.correct,
-        duration: row.duration,
-        violations: row.violations,
-        finished_at: new Date(row.finishedAt).toISOString(),
-      },
-    })
-    console.log('submitExamResult response', res.statusCode, res.data)
-    return res.statusCode >= 200 && res.statusCode < 300
-  } catch (e) {
-    console.error('submitExamResult error', e)
-    return false
+  const payload = {
+    session_code: row.sessionCode,
+    teacher_id: teacherId,
+    student_name: row.studentName,
+    student_id: row.studentId,
+    student_phone: row.studentPhone || null,
+    total: row.total,
+    correct: row.correct,
+    duration: row.duration,
+    violations: row.violations,
+    finished_at: new Date(row.finishedAt).toISOString(),
   }
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await Taro.request({
+        url: `${SUPABASE_URL}/rest/v1/exam_results`,
+        method: 'POST',
+        header: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        data: payload,
+        timeout: 15000,
+      })
+      console.log('submitExamResult response', res.statusCode, res.data)
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return true
+      }
+      if (res.statusCode >= 400 && res.statusCode < 500) {
+        // 4xx 错误不重试
+        return false
+      }
+    } catch (e) {
+      console.error(`submitExamResult attempt ${attempt} error`, e)
+      if (attempt === 3) return false
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt))
+    }
+  }
+  return false
 }
