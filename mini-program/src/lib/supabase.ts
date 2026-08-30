@@ -67,6 +67,7 @@ export async function fetchSessionByCode(code: string): Promise<ExamSession | nu
     const row = data[0] as Record<string, unknown>
     const session = {
       ...row,
+      teacherId: row.teacher_id as string,
       paper: row.paper as Question[],
       createdAt: new Date(row.created_at as string).getTime(),
     } as ExamSession
