@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import type { ExamSession, ExamResultRow, Question } from '@/types'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://eavkjpsqxgrcjcfrhodx.supabase.co'
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || ''
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_gd0qrPYJZg4EU63ME3Z3Eg_sF2VMR8K'
 
 // 小程序 fetch 适配：用 wx.request 包装成 fetch API
 function miniProgramFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
