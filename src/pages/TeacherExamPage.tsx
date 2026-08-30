@@ -98,7 +98,8 @@ function ViolationsDialog({ result, open, onOpenChange }: { result: ExamResultRo
 }
 
 export function joinUrl(code: string): string {
-  return `${window.location.origin}${window.location.pathname}#/join/${code}`
+  // 小程序路径，微信扫码后可直接进入小程序并带上考试码
+  return `pages/index/index?code=${code}`
 }
 
 export function TeacherExamPage() {
@@ -200,10 +201,10 @@ export function TeacherExamPage() {
   }
 
   const copyLink = (code: string) => {
-    navigator.clipboard.writeText(joinUrl(code)).then(() => {
+    navigator.clipboard.writeText(code).then(() => {
       setCopied(code)
       setTimeout(() => setCopied(null), 1500)
-      toast.success('考试链接已复制')
+      toast.success('考试码已复制')
     })
   }
 
@@ -335,9 +336,14 @@ export function TeacherExamPage() {
             <div className="flex flex-col items-center gap-4 py-2">
               {qrDataUrl && <img src={qrDataUrl} alt={`考试码 ${qrFor.code} 二维码`} className="rounded-xl border" />}
               <p className="font-mono text-2xl font-bold tracking-widest text-primary">{qrFor.code}</p>
-              <p className="break-all text-center text-xs text-muted-foreground">{joinUrl(qrFor.code)}</p>
+              <div className="rounded-lg bg-muted p-3 text-center text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">学生操作步骤</p>
+                <p className="mt-1">1. 微信打开「题练通」小程序</p>
+                <p>2. 输入上方考试码</p>
+                <p>3. 填写姓名学号后开始考试</p>
+              </div>
               <Button variant="outline" className="cursor-pointer" onClick={() => copyLink(qrFor.code)}>
-                <Copy className="mr-1.5 h-4 w-4" /> 复制链接
+                <Copy className="mr-1.5 h-4 w-4" /> 复制考试码
               </Button>
             </div>
           )}
