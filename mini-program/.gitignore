@@ -1,0 +1,6 @@
+dist/
+node_modules/
+.project.config.json
+.project.private.config.json
+*.log
+.DS_Store

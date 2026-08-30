@@ -1,0 +1,169 @@
+import { useEffect, useMemo, useState } from 'react'
+import { View, Text, Button, ScrollView } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import type { ExamSession, AnswerMap, Question, Violation } from '@/types'
+import { gradeQuestion, isObjective } from '@/types'
+import { submitExamResult } from '@/lib/supabase'
+import { getStudentInfo, saveLocalResult } from '@/lib/store'
+import QuestionRender from '@/components/QuestionRender'
+import './index.css'
+
+export default function ExamPage() {
+  const [session, setSession] = useState<ExamSession | null>(null)
+  const [answers, setAnswers] = useState<AnswerMap>({})
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [startAt, setStartAt] = useState(0)
+  const [remaining, setRemaining] = useState(0)
+  const [violations, setViolations] = useState<Violation[]>([])
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    const s = Taro.getStorageSync('current_session') as ExamSession | undefined
+    if (!s) {
+      Taro.redirectTo({ url: '/pages/index/index' })
+      return
+    }
+    setSession(s)
+    setStartAt(Date.now())
+    setRemaining(s.minutes * 60)
+  }, [])
+
+  useEffect(() => {
+    if (!session || remaining <= 0) return
+    const timer = setInterval(() => {
+      const left = Math.max(0, Math.ceil(session.minutes * 60 - (Date.now() - startAt) / 1000))
+      setRemaining(left)
+      if (left <= 0) {
+        clearInterval(timer)
+        handleSubmit(true)
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [session, startAt])
+
+  useEffect(() => {
+    const onHide = () => {
+      setViolations((v) => [
+        ...v,
+        { type: 'hidden', label: '切换离开小程序', time: Date.now() },
+      ])
+    }
+    Taro.eventCenter.on('appDidHide', onHide)
+    return () => Taro.eventCenter.off('appDidHide', onHide)
+  }, [])
+
+  const currentQuestion = useMemo<Question | undefined>(() => {
+    return session?.paper[currentIndex]
+  }, [session, currentIndex])
+
+  const answeredCount = useMemo(() => {
+    return session?.paper.filter((q) => {
+      const a = answers[q.id]
+      if (Array.isArray(a)) return a.length > 0
+      return a !== undefined && a !== ''
+    }).length ?? 0
+  }, [answers, session])
+
+  const handleAnswer = (value: string | string[]) => {
+    if (!currentQuestion) return
+    setAnswers({ ...answers, [currentQuestion.id]: value })
+  }
+
+  const handleSubmit = async (forced = false) => {
+    if (!session) return
+    if (!forced) {
+      const res = await Taro.showModal({
+        title: '确认交卷',
+        content: `已答 ${answeredCount}/${session.paper.length} 题，确定交卷？`,
+      })
+      if (!res.confirm) return
+    }
+
+    setSubmitting(true)
+    const info = getStudentInfo()
+    let correct = 0
+    session.paper.forEach((q) => {
+      if (isObjective(q) && gradeQuestion(q, answers[q.id])) {
+        correct += 1
+      }
+    })
+    const duration = Math.floor((Date.now() - startAt) / 1000)
+    const result: Parameters<typeof saveLocalResult>[0] = {
+      sessionCode: session.code,
+      studentName: info.name,
+      studentId: info.studentId,
+      studentPhone: info.phone,
+      total: session.paper.length,
+      correct,
+      duration,
+      violations,
+      finishedAt: Date.now(),
+    }
+    saveLocalResult(result)
+    const ok = await submitExamResult(result)
+    setSubmitting(false)
+    Taro.removeStorageSync('current_session')
+    Taro.redirectTo({
+      url: `/pages/result/index?total=${session.paper.length}&correct=${correct}&duration=${duration}&synced=${ok ? 1 : 0}`,
+    })
+  }
+
+  if (!session) return null
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60)
+      .toString()
+      .padStart(2, '0')
+    const s = (sec % 60).toString().padStart(2, '0')
+    return `${m}:${s}`
+  }
+
+  return (
+    <View className="exam-page">
+      <View className="exam-header">
+        <Text style={{ fontSize: '30rpx', fontWeight: 500 }}>{session.title}</Text>
+        <Text className={remaining < 60 ? 'time-danger' : 'time'}>{formatTime(remaining)}</Text>
+      </View>
+
+      <ScrollView scrollY className="exam-scroll">
+        <View className="container">
+          {currentQuestion && (
+            <QuestionRender
+              question={currentQuestion}
+              index={currentIndex}
+              value={answers[currentQuestion.id]}
+              onChange={handleAnswer}
+            />
+          )}
+        </View>
+      </ScrollView>
+
+      <View className="exam-footer">
+        <View className="progress-bar">
+          <View className="progress-fill" style={{ width: `${((currentIndex + 1) / session.paper.length) * 100}%` }} />
+        </View>
+        <View className="footer-actions">
+          <Button
+            className="btn footer-btn"
+            disabled={currentIndex === 0}
+            onClick={() => setCurrentIndex(currentIndex - 1)}
+          >
+            上一题
+          </Button>
+          <Text className="text-muted" style={{ fontSize: '26rpx' }}>
+            {currentIndex + 1}/{session.paper.length} 已答 {answeredCount}
+          </Text>
+          {currentIndex < session.paper.length - 1 ? (
+            <Button className="btn btn-primary footer-btn" onClick={() => setCurrentIndex(currentIndex + 1)}>
+              下一题
+            </Button>
+          ) : (
+            <Button className="btn btn-danger footer-btn" loading={submitting} disabled={submitting} onClick={() => handleSubmit(false)}>
+              交卷
+            </Button>
+          )}
+        </View>
+      </View>
+    </View>
+  )
+}

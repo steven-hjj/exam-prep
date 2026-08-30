@@ -61,6 +61,20 @@ git remote add origin https://github.com/steven-hjj/exam-prep.git
 git push -u origin main
 ```
 
+## 微信小程序学生端
+
+代码在 `mini-program/` 目录：
+
+```bash
+cd mini-program
+npm install
+npm run dev:weapp
+```
+
+用微信开发者工具打开 `mini-program/dist` 目录即可预览。
+
+学生端只做考试入口：输入考试码 → 填写姓名学号 → 做题 → 交卷。老师发题、组卷、看成绩仍在网页端完成。
+
 ## Supabase 更新
 
 数据库结构变更时，在 Supabase Dashboard → SQL Editor 执行 `supabase/fix-schema.sql`。

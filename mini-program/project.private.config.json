@@ -1,0 +1,6 @@
+{
+  "description": "私有配置，不会上传到代码仓库",
+  "setting": {
+    "urlCheck": false
+  }
+}

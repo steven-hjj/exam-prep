@@ -1,0 +1,12 @@
+.score-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 240rpx;
+  height: 240rpx;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 50%;
+  background: #eff6ff;
+}
