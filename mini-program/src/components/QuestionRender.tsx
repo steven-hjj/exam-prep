@@ -1,4 +1,4 @@
-import { View, Text, RadioGroup, Radio, CheckboxGroup, Checkbox, Input, Textarea } from '@tarojs/components'
+import { View, Text, Label, RadioGroup, Radio, CheckboxGroup, Checkbox, Input, Textarea } from '@tarojs/components'
 import type { Question } from '@/types'
 
 const OPTION_LABEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -79,7 +79,9 @@ export default function QuestionRender({ question, index, value, onChange }: Pro
   return (
     <View className="card mt-4">
       <Text className="text-muted">第 {index + 1} 题</Text>
-      <Text style={{ fontSize: '32rpx', lineHeight: '1.6', marginTop: '12rpx', display: 'block' }}>{q.stem}</Text>
+      <View style={{ marginTop: '12rpx' }}>
+        <Text style={{ fontSize: '32rpx', lineHeight: '1.6' }}>{q.stem}</Text>
+      </View>
       {q.type === 'single' && renderOptions()}
       {q.type === 'multiple' && renderOptions()}
       {q.type === 'judge' && renderJudge()}
@@ -91,22 +93,22 @@ export default function QuestionRender({ question, index, value, onChange }: Pro
 
 function LabelRadio({ label, text, value, checked }: { label: string; text: string; value: string; checked?: boolean }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
+    <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
       <Radio value={value} checked={checked} />
       <Text style={{ marginLeft: '12rpx', fontSize: '30rpx' }}>
         {label}. {text}
       </Text>
-    </label>
+    </Label>
   )
 }
 
 function LabelCheckbox({ label, text, value, checked }: { label: string; text: string; value: string; checked?: boolean }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
+    <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
       <Checkbox value={value} checked={checked} />
       <Text style={{ marginLeft: '12rpx', fontSize: '30rpx' }}>
         {label}. {text}
       </Text>
-    </label>
+    </Label>
   )
 }

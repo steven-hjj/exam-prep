@@ -39,14 +39,16 @@ export default function IndexPage() {
   return (
     <View className="container">
       <View className="card text-center" style={{ marginTop: '60rpx' }}>
-        <Text style={{ fontSize: '44rpx', fontWeight: 700 }}>题练通</Text>
-        <Text className="text-muted" style={{ display: 'block', marginTop: '12rpx' }}>
-          输入考试码，开始答题
-        </Text>
+        <View style={{ textAlign: 'center' }}>
+          <Text style={{ fontSize: '44rpx', fontWeight: '700' }}>题练通</Text>
+        </View>
+        <View style={{ textAlign: 'center', marginTop: '12rpx' }}>
+          <Text className="text-muted">输入考试码，开始答题</Text>
+        </View>
       </View>
 
       <View className="card mt-6">
-        <Text style={{ fontSize: '30rpx', fontWeight: 500 }}>考试码</Text>
+        <Text style={{ fontSize: '30rpx', fontWeight: '500' }}>考试码</Text>
         <Input
           className="input mt-2"
           placeholder="例如 ABCD-1234"
@@ -55,7 +57,9 @@ export default function IndexPage() {
           maxlength={20}
         />
 
-        <Text style={{ fontSize: '30rpx', fontWeight: 500, marginTop: '32rpx', display: 'block' }}>考生信息</Text>
+        <View style={{ marginTop: '32rpx' }}>
+          <Text style={{ fontSize: '30rpx', fontWeight: '500' }}>考生信息</Text>
+        </View>
         <Input
           className="input mt-2"
           placeholder="姓名"
@@ -86,9 +90,11 @@ export default function IndexPage() {
         </Button>
       </View>
 
-      <Text className="text-muted text-center" style={{ display: 'block', marginTop: '40rpx', fontSize: '26rpx' }}>
-        老师请在网页端发起考试并获取考试码
-      </Text>
+      <View style={{ textAlign: 'center', marginTop: '40rpx' }}>
+        <Text className="text-muted" style={{ fontSize: '26rpx' }}>
+          老师请在网页端发起考试并获取考试码
+        </Text>
+      </View>
     </View>
   )
 }

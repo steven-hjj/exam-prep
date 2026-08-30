@@ -24,20 +24,24 @@ export default function ResultPage() {
   return (
     <View className="container">
       <View className="card text-center" style={{ marginTop: '80rpx' }}>
-        <Text style={{ fontSize: '36rpx', fontWeight: 600 }}>考试完成</Text>
+        <Text style={{ fontSize: '36rpx', fontWeight: '600' }}>考试完成</Text>
         <View className="score-circle mt-4">
-          <Text style={{ fontSize: '72rpx', fontWeight: 700, color: '#3b82f6' }}>
+          <Text style={{ fontSize: '72rpx', fontWeight: '700', color: '#3b82f6' }}>
             {data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0}
           </Text>
           <Text style={{ fontSize: '28rpx', color: '#6b7280' }}>分</Text>
         </View>
-        <Text className="text-muted mt-2" style={{ display: 'block' }}>
-          答对 {data.correct}/{data.total} 题 · 用时 {formatDuration(data.duration)}
-        </Text>
-        {data.synced === 0 && (
-          <Text className="text-muted" style={{ display: 'block', marginTop: '8rpx', fontSize: '26rpx', color: '#ef4444' }}>
-            成绩暂存在本地，联网后会自动同步
+        <View className="mt-2" style={{ textAlign: 'center' }}>
+          <Text className="text-muted">
+            答对 {data.correct}/{data.total} 题 · 用时 {formatDuration(data.duration)}
           </Text>
+        </View>
+        {data.synced === 0 && (
+          <View style={{ textAlign: 'center', marginTop: '8rpx' }}>
+            <Text className="text-muted" style={{ fontSize: '26rpx', color: '#ef4444' }}>
+              成绩暂存在本地，联网后会自动同步
+            </Text>
+          </View>
         )}
       </View>
 

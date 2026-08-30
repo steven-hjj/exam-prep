@@ -121,7 +121,7 @@ export default function ExamPage() {
   return (
     <View className="exam-page">
       <View className="exam-header">
-        <Text style={{ fontSize: '30rpx', fontWeight: 500 }}>{session.title}</Text>
+        <Text style={{ fontSize: '30rpx', fontWeight: '500' }}>{session.title}</Text>
         <Text className={remaining < 60 ? 'time-danger' : 'time'}>{formatTime(remaining)}</Text>
       </View>
 
