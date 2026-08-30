@@ -20,19 +20,28 @@ function getAuthHeaders() {
 
 export async function fetchSessionByCode(code: string): Promise<ExamSession | null> {
   try {
-    const res = await Taro.request<unknown[]>({
+    const res = await Taro.request({
       url: `${SUPABASE_URL}/rest/v1/exam_sessions?code=eq.${encodeURIComponent(code)}&select=*`,
       method: 'GET',
       header: getAuthHeaders(),
     })
-    if (res.statusCode !== 200 || !Array.isArray(res.data) || res.data.length === 0) {
+    console.log('fetchSessionByCode response', res.statusCode, typeof res.data, res.data)
+    let data: unknown = res.data
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data)
+      } catch {
+        return null
+      }
+    }
+    if (res.statusCode !== 200 || !Array.isArray(data) || data.length === 0) {
       return null
     }
-    const data = res.data[0] as Record<string, unknown>
+    const row = data[0] as Record<string, unknown>
     return {
-      ...data,
-      paper: data.paper as Question[],
-      createdAt: new Date(data.created_at as string).getTime(),
+      ...row,
+      paper: row.paper as Question[],
+      createdAt: new Date(row.created_at as string).getTime(),
     } as ExamSession
   } catch (e) {
     console.error('fetchSessionByCode error', e)
@@ -61,6 +70,7 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>): Promise<
         finished_at: new Date(row.finishedAt).toISOString(),
       },
     })
+    console.log('submitExamResult response', res.statusCode, res.data)
     return res.statusCode >= 200 && res.statusCode < 300
   } catch (e) {
     console.error('submitExamResult error', e)
