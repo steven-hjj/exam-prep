@@ -100,7 +100,7 @@ export default function ExamPage() {
       finishedAt: Date.now(),
     }
     saveLocalResult(result)
-    const ok = await submitExamResult(result)
+    const ok = await submitExamResult(result, session.teacherId)
     setSubmitting(false)
     Taro.removeStorageSync('current_session')
     Taro.redirectTo({

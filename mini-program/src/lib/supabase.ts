@@ -49,7 +49,7 @@ export async function fetchSessionByCode(code: string): Promise<ExamSession | nu
   }
 }
 
-export async function submitExamResult(row: Omit<ExamResultRow, 'id'>): Promise<boolean> {
+export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId: string): Promise<boolean> {
   try {
     const res = await Taro.request({
       url: `${SUPABASE_URL}/rest/v1/exam_results`,
@@ -60,6 +60,7 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>): Promise<
       },
       data: {
         session_code: row.sessionCode,
+        teacher_id: teacherId,
         student_name: row.studentName,
         student_id: row.studentId,
         student_phone: row.studentPhone || null,
