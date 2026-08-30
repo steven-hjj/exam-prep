@@ -65,9 +65,21 @@ export const TYPE_LABEL: Record<QuestionType, string> = {
 
 /** 防作弊违规记录 */
 export interface Violation {
-  type: 'blur' | 'hidden' | 'copy' | 'shortcut' | 'contextmenu' | 'fullscreen-exit' | 'navigation'
+  type:
+    | 'blur'
+    | 'hidden'
+    | 'copy'
+    | 'shortcut'
+    | 'contextmenu'
+    | 'fullscreen-exit'
+    | 'navigation'
+    | 'absence'
+    | 'rapid-switch'
+    | 'fast-answer'
+    | 'suspicious-process'
   label: string
   time: number
+  meta?: Record<string, unknown>
 }
 
 /** 一次考试/练习的成绩记录 */
@@ -143,6 +155,8 @@ export interface ExamResultRow {
   duration: number
   violations: Violation[]
   finishedAt: number
+  /** 学生作答记录（JSON 存储） */
+  answers?: Record<string, string | string[]>
 }
 
 /** 套餐方案 */

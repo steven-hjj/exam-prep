@@ -210,6 +210,7 @@ export default function ExamPage() {
         duration,
         violations,
         finishedAt: Date.now(),
+        answers,
       }
       saveLocalResult(result)
       saveReviewData({

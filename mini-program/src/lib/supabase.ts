@@ -92,6 +92,7 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId
     duration: row.duration,
     violations: row.violations,
     finished_at: new Date(row.finishedAt).toISOString(),
+    answers: row.answers || null,
   }
 
   for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {

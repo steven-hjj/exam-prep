@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/auth'
 import { useStore } from '@/lib/store'
 import { supabase } from '@/lib/supabase'
 import type { ExamResultRow, ExamSession, Question, Violation } from '@/types'
+import { gradeQuestion, isObjective, TYPE_LABEL } from '@/types'
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -97,6 +98,98 @@ function ViolationsDialog({ result, open, onOpenChange }: { result: ExamResultRo
   )
 }
 
+/** 成绩详情弹窗：显示每题对错、学生答案、正确答案 */
+function ResultDetailsDialog({ result, open, onOpenChange }: { result: ExamResultRow | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [session, setSession] = useState<ExamSession | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!result || !supabase) return
+    setLoading(true)
+    supabase
+      .from('exam_sessions')
+      .select('*')
+      .eq('code', result.sessionCode)
+      .single()
+      .then(({ data, error }) => {
+        setLoading(false)
+        if (!error && data) {
+          setSession({
+            ...data,
+            paper: data.paper as Question[],
+            createdAt: new Date(data.created_at).getTime(),
+          } as ExamSession)
+        }
+      })
+  }, [result])
+
+  if (!result) return null
+
+  const getAnswerText = (q: Question): string => {
+    if (q.type === 'single' || q.type === 'judge') return String(q.answer)
+    if (q.type === 'multiple') return (q.answer as string[]).sort().join(', ')
+    if (q.type === 'fill') return (q.answer as string[]).join('；')
+    return String(q.answer)
+  }
+
+  const getUserAnswerText = (q: Question): string => {
+    const userAnswer = result.answers?.[q.id]
+    if (userAnswer === undefined || userAnswer === '') return '未作答'
+    if (Array.isArray(userAnswer)) return userAnswer.join('；')
+    return String(userAnswer)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{result.studentName} 的答题详情</DialogTitle>
+        </DialogHeader>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : !session ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">无法加载试卷信息</p>
+        ) : (
+          <div className="space-y-4 py-2">
+            {session.paper.map((q, i) => {
+              const userAnswer = result.answers?.[q.id]
+              const isCorrect = isObjective(q) && gradeQuestion(q, userAnswer)
+              const isAnswered = userAnswer !== undefined && userAnswer !== ''
+
+              return (
+                <div key={q.id} className={`rounded-lg border p-4 ${isCorrect ? 'border-green-200 bg-green-50' : isAnswered ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">第 {i + 1} 题</span>
+                    <Badge variant="secondary" className="text-xs">{TYPE_LABEL[q.type]}</Badge>
+                    <span className={`ml-auto text-xs font-medium ${isCorrect ? 'text-green-600' : isAnswered ? 'text-red-600' : 'text-yellow-600'}`}>
+                      {isCorrect ? '✓ 正确' : isAnswered ? '✗ 错误' : '未作答'}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm">
+                    <p className="whitespace-pre-wrap">{q.stem}</p>
+                  </div>
+                  <div className="mt-3 space-y-1 text-sm">
+                    <p><span className="text-muted-foreground">学生答案：</span>{getUserAnswerText(q)}</p>
+                    <p><span className="text-muted-foreground">正确答案：</span><span className="text-green-600">{getAnswerText(q)}</span></p>
+                  </div>
+                  {q.analysis && (
+                    <div className="mt-3 border-t pt-3 text-sm">
+                      <p className="text-muted-foreground">解析：</p>
+                      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{q.analysis}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function joinUrl(code: string): string {
   // 小程序路径，微信扫码后可直接进入小程序并带上考试码
   return `pages/index/index?code=${code}`
@@ -121,6 +214,7 @@ export function TeacherExamPage() {
   const [results, setResults] = useState<ExamResultRow[]>([])
   const [copied, setCopied] = useState<string | null>(null)
   const [violationsFor, setViolationsFor] = useState<ExamResultRow | null>(null)
+  const [detailsFor, setDetailsFor] = useState<ExamResultRow | null>(null)
 
   const pool = bankId === 'all' ? questions : questions.filter((q) => q.bankId === bankId)
 
@@ -352,7 +446,7 @@ export function TeacherExamPage() {
 
       {/* 成绩弹窗 */}
       <Dialog open={!!resultsFor} onOpenChange={(o) => !o && setResultsFor(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>「{resultsFor?.title}」成绩（{results.length} 人交卷）</DialogTitle>
           </DialogHeader>
@@ -368,6 +462,7 @@ export function TeacherExamPage() {
                   <TableHead>得分</TableHead>
                   <TableHead>用时</TableHead>
                   <TableHead>违规</TableHead>
+                  <TableHead>详情</TableHead>
                   <TableHead>交卷时间</TableHead>
                 </TableRow>
               </TableHeader>
@@ -384,7 +479,7 @@ export function TeacherExamPage() {
                       </TableCell>
                       <TableCell>{Math.floor(r.duration / 60)}分{r.duration % 60}秒</TableCell>
                       <TableCell>
-                        {r.violations.length > 0 ? (
+                        {r.violations.filter((v) => v.type !== 'fast-answer').length > 0 ? (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -392,11 +487,21 @@ export function TeacherExamPage() {
                             onClick={() => setViolationsFor(r)}
                           >
                             <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                            {r.violations.length} 次
+                            {r.violations.filter((v) => v.type !== 'fast-answer').length} 次
                           </Button>
                         ) : (
                           <span className="text-muted-foreground">无</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 cursor-pointer px-2"
+                          onClick={() => setDetailsFor(r)}
+                        >
+                          详情
+                        </Button>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {new Date(r.finishedAt).toLocaleString('zh-CN')}
@@ -415,6 +520,13 @@ export function TeacherExamPage() {
         result={violationsFor}
         open={!!violationsFor}
         onOpenChange={(o) => !o && setViolationsFor(null)}
+      />
+
+      {/* 成绩详情弹窗 */}
+      <ResultDetailsDialog
+        result={detailsFor}
+        open={!!detailsFor}
+        onOpenChange={(o) => !o && setDetailsFor(null)}
       />
     </div>
   )

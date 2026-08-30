@@ -101,6 +101,7 @@ export interface ExamResultRow {
   duration: number
   violations: Violation[]
   finishedAt: number
+  answers?: AnswerMap
 }
 
 export type PlanType = 'free' | 'teacher' | 'school'
