@@ -9,9 +9,23 @@ interface MathTextProps {
 
 const CODECOGS_URL = 'https://latex.codecogs.com/svg.image?'
 
-function renderMathUrl(latex: string, displayMode = false): string {
-  const params = displayMode ? latex : `\\inline ${latex}`
-  return `${CODECOGS_URL}${encodeURIComponent(params)}`
+function hasMath(text: string): boolean {
+  return /\$[\s\S]*?\$/.test(text)
+}
+
+function escapeLatexText(text: string): string {
+  return text.replace(/[{}\\%$#&_^]/g, (c) => `\\${c}`)
+}
+
+function toLatexDocument(text: string): string {
+  const segments = parseSegments(text)
+  const parts = segments.map((seg) => {
+    if (seg.type === 'text') {
+      return `\\text{${escapeLatexText(seg.content)}}`
+    }
+    return seg.content
+  })
+  return parts.join(' ')
 }
 
 interface Segment {
@@ -56,42 +70,30 @@ function parseSegments(text: string): Segment[] {
 
 export default function MathText({ text, inline = true, fontSize = '32rpx' }: MathTextProps) {
   const segments = useMemo(() => parseSegments(text), [text])
+  const hasAnyMath = useMemo(() => hasMath(text), [text])
 
   if (!text) return null
 
+  // 包含数学公式时，整段渲染为一张 LaTeX 图片，保证各部分比例一致
+  if (hasAnyMath) {
+    const latex = toLatexDocument(text)
+    const url = `${CODECOGS_URL}${encodeURIComponent(latex)}`
+    return (
+      <View style={{ width: '100%' }}>
+        <Image
+          src={url}
+          mode="widthFix"
+          style={{ width: '100%', height: 'auto' }}
+          lazyLoad
+        />
+      </View>
+    )
+  }
+
+  // 纯文本直接显示
   return (
-    <View style={inline ? { display: 'flex', flexWrap: 'wrap', alignItems: 'center' } : {}}>
-      {segments.map((seg, i) => {
-        if (seg.type === 'text') {
-          return (
-            <Text key={i} style={{ fontSize, lineHeight: '1.6' }}>
-              {seg.content}
-            </Text>
-          )
-        }
-        const url = renderMathUrl(seg.content, seg.displayMode)
-        if (seg.displayMode) {
-          return (
-            <View key={i} style={{ width: '100%', textAlign: 'center', marginTop: '12rpx', marginBottom: '12rpx' }}>
-              <Image
-                src={url}
-                mode="widthFix"
-                style={{ maxWidth: '100%', height: 'auto' }}
-                lazyLoad
-              />
-            </View>
-          )
-        }
-        return (
-          <Image
-            key={i}
-            src={url}
-            mode="heightFix"
-            style={{ height: '40rpx', width: 'auto', verticalAlign: 'middle', marginLeft: '4rpx', marginRight: '4rpx' }}
-            lazyLoad
-          />
-        )
-      })}
-    </View>
+    <Text style={{ fontSize, lineHeight: '1.6' }}>
+      {text}
+    </Text>
   )
 }
