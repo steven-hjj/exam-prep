@@ -2,7 +2,7 @@
   "miniprogramRoot": "dist/",
   "projectname": "exam-prep-mini",
   "description": "ExamPrep student mini-program",
-  "appid": "touristappid",
+  "appid": "wx90d7339d3b4493e1",
   "setting": {
     "urlCheck": true,
     "es6": true,

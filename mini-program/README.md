@@ -43,11 +43,19 @@ npm run build:weapp
 
 小程序不像网页那样能读 `.env`，所以 Supabase 配置目前写死在 `src/lib/supabase.ts` 顶部常量里。后续如需多环境，可在 `config/index.js` 的 `defineConstants` 中注入。
 
+## 发布配置
+
+- **AppID**: `wx90d7339d3b4493e1`
+- **服务器域名**（微信公众平台后台配置）：
+  - request 合法域名：`https://eavkjpsqxgrcjcfrhodx.supabase.co`
+  - uploadFile 合法域名：`https://eavkjpsqxgrcjcfrhodx.supabase.co`
+  - downloadFile 合法域名：`https://eavkjpsqxgrcjcfrhodx.supabase.co`
+
 ## 微信一键登录（可选）
 
 当前版本不强制登录。后续如需微信一键登录，需要：
 
-1. 在微信公众平台拿到 AppID 和 AppSecret
+1. 在微信公众平台拿到 AppSecret
 2. 在 Supabase 新增 Edge Function `wechat-login`
 3. 小程序调用 `wx.login()` 拿到 code，发给 Edge Function 换取 openid
 4. Edge Function 返回自定义 token 或绑定到已有账号
