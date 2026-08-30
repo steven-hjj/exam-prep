@@ -56,9 +56,32 @@ export default function ExamPage() {
         { type: 'hidden', label: '切换离开小程序', time: Date.now() },
       ])
     }
+    const onScreenshot = () => {
+      setViolations((v) => [
+        ...v,
+        { type: 'copy', label: '截屏', time: Date.now() },
+      ])
+      Taro.showToast({ title: '检测到截屏，已记录违规', icon: 'none' })
+    }
     Taro.eventCenter.on('appDidHide', onHide)
-    return () => Taro.eventCenter.off('appDidHide', onHide)
+    Taro.onUserCaptureScreen(onScreenshot)
+    return () => {
+      Taro.eventCenter.off('appDidHide', onHide)
+      Taro.offUserCaptureScreen(onScreenshot)
+    }
   }, [])
+
+  // 违规过多自动交卷
+  useEffect(() => {
+    if (violations.length >= 5 && !submitting) {
+      Taro.showModal({
+        title: '违规次数过多',
+        content: '检测到多次违规操作，将强制交卷',
+        showCancel: false,
+        success: () => handleSubmit(true),
+      })
+    }
+  }, [violations.length, submitting])
 
   const currentQuestion = useMemo<Question | undefined>(() => {
     return session?.paper[currentIndex]
@@ -139,7 +162,12 @@ export default function ExamPage() {
     <View className="exam-page">
       <View className="exam-header">
         <Text style={{ fontSize: '30rpx', fontWeight: '500' }}>{session.title}</Text>
-        <Text className={remaining < 60 ? 'time-danger' : 'time'}>{formatTime(remaining)}</Text>
+        <View style={{ display: 'flex', alignItems: 'center', gap: '16rpx' }}>
+          {violations.length > 0 && (
+            <Text className="violation-badge">违规 {violations.length}</Text>
+          )}
+          <Text className={remaining < 60 ? 'time-danger' : 'time'}>{formatTime(remaining)}</Text>
+        </View>
       </View>
 
       <ScrollView scrollY className="exam-scroll">

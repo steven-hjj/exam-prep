@@ -26,6 +26,14 @@
   color: #ef4444;
 }
 
+.violation-badge {
+  font-size: 24rpx;
+  color: #ef4444;
+  background: #fee2e2;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}
+
 .exam-scroll {
   flex: 1;
   overflow: hidden;
