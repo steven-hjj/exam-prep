@@ -30,6 +30,7 @@ export default function ExamPage() {
   const switchTimes = useRef<number[]>([])
   const questionStartAt = useRef(0)
   const questionTimes = useRef<Record<string, number>>({})
+  const fastAnswerCount = useRef(0)
 
   useEffect(() => {
     const s = Taro.getStorageSync('current_session') as ExamSession | undefined
@@ -153,13 +154,19 @@ export default function ExamPage() {
     (value: string | string[]) => {
       if (!currentQuestion) return
 
-      // 检测答题过快（少于 3 秒）
+      // 检测答题过快（少于 1 秒，且连续 3 次才记录）
       const elapsed = Date.now() - questionStartAt.current
-      if (elapsed < 3000) {
-        setViolations((v) => [
-          ...v,
-          { type: 'fast-answer', label: `答题过快（${Math.round(elapsed / 1000)}秒）`, time: Date.now(), meta: { elapsed, questionId: currentQuestion.id } },
-        ])
+      if (elapsed < 1000) {
+        fastAnswerCount.current += 1
+        if (fastAnswerCount.current >= 3) {
+          setViolations((v) => [
+            ...v,
+            { type: 'fast-answer', label: '连续多题答题过快', time: Date.now() },
+          ])
+          fastAnswerCount.current = 0
+        }
+      } else {
+        fastAnswerCount.current = 0
       }
 
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
