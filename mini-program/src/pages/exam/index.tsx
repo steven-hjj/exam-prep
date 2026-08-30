@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ExamSession, AnswerMap, Question, Violation } from '@/types'
@@ -25,6 +25,12 @@ export default function ExamPage() {
   const [violations, setViolations] = useState<Violation[]>([])
   const [submitting, setSubmitting] = useState(false)
 
+  // 防作弊追踪
+  const lastHideAt = useRef(0)
+  const switchTimes = useRef<number[]>([])
+  const questionStartAt = useRef(0)
+  const questionTimes = useRef<Record<string, number>>({})
+
   useEffect(() => {
     const s = Taro.getStorageSync('current_session') as ExamSession | undefined
     if (!s) {
@@ -34,6 +40,7 @@ export default function ExamPage() {
     setSession(s)
     setStartAt(Date.now())
     setRemaining(s.minutes * 60)
+    questionStartAt.current = Date.now()
   }, [])
 
   useEffect(() => {
@@ -49,13 +56,56 @@ export default function ExamPage() {
     return () => clearInterval(timer)
   }, [session, startAt])
 
+  // 记录当前题目耗时
+  useEffect(() => {
+    if (!currentQuestion) return
+    const now = Date.now()
+    if (questionStartAt.current > 0) {
+      const prevId = session?.paper[currentIndex - 1]?.id
+      if (prevId) {
+        questionTimes.current[prevId] = now - questionStartAt.current
+      }
+    }
+    questionStartAt.current = now
+  }, [currentIndex, currentQuestion, session])
+
+  // 切出/截屏检测
   useEffect(() => {
     const onHide = () => {
+      const now = Date.now()
+      lastHideAt.current = now
+      switchTimes.current.push(now)
+
+      // 检测快速切换（10秒内切出2次以上）
+      const recent = switchTimes.current.filter((t) => now - t < 10000)
+      if (recent.length >= 2) {
+        setViolations((v) => [
+          ...v,
+          { type: 'rapid-switch', label: '短时间内频繁切出', time: now },
+        ])
+      }
+
       setViolations((v) => [
         ...v,
-        { type: 'hidden', label: '切换离开小程序', time: Date.now() },
+        { type: 'hidden', label: '切换离开小程序', time: now },
       ])
     }
+
+    const onShow = () => {
+      if (lastHideAt.current > 0) {
+        const awayMs = Date.now() - lastHideAt.current
+        const awaySec = Math.round(awayMs / 1000)
+
+        // 离开超过 30 秒记录长时间离开
+        if (awaySec > 30) {
+          setViolations((v) => [
+            ...v,
+            { type: 'absence', label: `离开 ${awaySec} 秒`, time: Date.now(), meta: { awaySec } },
+          ])
+        }
+      }
+    }
+
     const onScreenshot = () => {
       setViolations((v) => [
         ...v,
@@ -63,10 +113,14 @@ export default function ExamPage() {
       ])
       Taro.showToast({ title: '检测到截屏，已记录违规', icon: 'none' })
     }
+
     Taro.eventCenter.on('appDidHide', onHide)
+    Taro.eventCenter.on('appDidShow', onShow)
     Taro.onUserCaptureScreen(onScreenshot)
+
     return () => {
       Taro.eventCenter.off('appDidHide', onHide)
+      Taro.eventCenter.off('appDidShow', onShow)
       Taro.offUserCaptureScreen(onScreenshot)
     }
   }, [])
@@ -98,6 +152,16 @@ export default function ExamPage() {
   const handleAnswer = useCallback(
     (value: string | string[]) => {
       if (!currentQuestion) return
+
+      // 检测答题过快（少于 3 秒）
+      const elapsed = Date.now() - questionStartAt.current
+      if (elapsed < 3000) {
+        setViolations((v) => [
+          ...v,
+          { type: 'fast-answer', label: `答题过快（${Math.round(elapsed / 1000)}秒）`, time: Date.now(), meta: { elapsed, questionId: currentQuestion.id } },
+        ])
+      }
+
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
     },
     [currentQuestion],
@@ -122,6 +186,12 @@ export default function ExamPage() {
           correct += 1
         }
       })
+
+      // 记录最后一题耗时
+      if (currentQuestion) {
+        questionTimes.current[currentQuestion.id] = Date.now() - questionStartAt.current
+      }
+
       const duration = Math.floor((Date.now() - startAt) / 1000)
       const result: Parameters<typeof saveLocalResult>[0] = {
         sessionCode: session.code,
@@ -150,7 +220,7 @@ export default function ExamPage() {
         url: `/pages/result/index?total=${session.paper.length}&correct=${correct}&duration=${duration}&synced=${ok ? 1 : 0}`,
       })
     },
-    [session, answeredCount, answers, startAt, violations],
+    [session, answeredCount, answers, startAt, violations, currentQuestion],
   )
 
   const goPrev = useCallback(() => {

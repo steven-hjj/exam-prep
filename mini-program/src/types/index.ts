@@ -43,9 +43,10 @@ export const TYPE_LABEL: Record<QuestionType, string> = {
 }
 
 export interface Violation {
-  type: 'blur' | 'hidden' | 'copy' | 'shortcut' | 'contextmenu' | 'fullscreen-exit' | 'navigation'
+  type: 'blur' | 'hidden' | 'copy' | 'shortcut' | 'contextmenu' | 'fullscreen-exit' | 'navigation' | 'absence' | 'rapid-switch' | 'fast-answer' | 'suspicious-pattern'
   label: string
   time: number
+  meta?: Record<string, unknown>
 }
 
 export interface AnswerMap {
