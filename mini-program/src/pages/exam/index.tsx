@@ -115,14 +115,31 @@ export default function ExamPage() {
       Taro.showToast({ title: '检测到截屏，已记录违规', icon: 'none' })
     }
 
+    const onResize = (res: { size: { windowWidth: number; windowHeight: number } }) => {
+      const { windowWidth, windowHeight } = res.size
+      // 检测分屏/小窗：窗口宽度明显小于屏幕宽度
+      Taro.getSystemInfo({
+        success: (info) => {
+          if (windowWidth < info.screenWidth * 0.8) {
+            setViolations((v) => [
+              ...v,
+              { type: 'resize', label: '检测到分屏或小窗', time: Date.now(), meta: { windowWidth, windowHeight, screenWidth: info.screenWidth } },
+            ])
+          }
+        },
+      })
+    }
+
     Taro.eventCenter.on('appDidHide', onHide)
     Taro.eventCenter.on('appDidShow', onShow)
     Taro.onUserCaptureScreen(onScreenshot)
+    Taro.onWindowResize(onResize)
 
     return () => {
       Taro.eventCenter.off('appDidHide', onHide)
       Taro.eventCenter.off('appDidShow', onShow)
       Taro.offUserCaptureScreen(onScreenshot)
+      Taro.offWindowResize(onResize)
     }
   }, [])
 

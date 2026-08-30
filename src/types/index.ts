@@ -77,6 +77,7 @@ export interface Violation {
     | 'rapid-switch'
     | 'fast-answer'
     | 'suspicious-process'
+    | 'resize'
   label: string
   time: number
   meta?: Record<string, unknown>
