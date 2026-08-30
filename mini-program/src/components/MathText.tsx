@@ -1,5 +1,6 @@
 import { View, Text, Image } from '@tarojs/components'
 import { memo, useMemo, useState } from 'react'
+import { cleanMath } from '@/lib/math'
 
 interface MathTextProps {
   text: string
@@ -10,6 +11,13 @@ interface MathTextProps {
 const CODECOGS_URL = 'https://latex.codecogs.com/svg.image?'
 const INLINE_IMAGE_HEIGHT = '36rpx'
 const INLINE_IMAGE_MARGIN = '4rpx'
+
+// 需要图片渲染的复杂数学特征
+const COMPLEX_MATH_PATTERNS = /\\frac|\\sqrt|\\int|\\sum|\\prod|\\binom|\\lim|\\partial|\\nabla|\\left|\\right|\\begin\{|\\end\{|\\text|\\mathrm|\\mathbf|\\mathit|\\operatorname/
+
+function isComplexMath(latex: string): boolean {
+  return COMPLEX_MATH_PATTERNS.test(latex)
+}
 
 function renderMathUrl(latex: string, displayMode = false): string {
   const size = displayMode ? '\\displaystyle' : '\\inline'
@@ -116,12 +124,23 @@ export default memo(function MathText({ text, inline = true, fontSize = '32rpx' 
             </Text>
           )
         }
+
+        // 简单数学（单字母、数字、简单上下标）用 Unicode 文本，避免图片过大
+        if (!isComplexMath(seg.content)) {
+          return (
+            <Text key={i} style={{ fontSize, lineHeight: '1.6' }}>
+              {cleanMath(`$${seg.content}$`)}
+            </Text>
+          )
+        }
+
+        // 复杂数学用图片渲染
         return (
           <MathImage
             key={i}
             latex={seg.content}
             displayMode={seg.displayMode}
-            fallback={`$${seg.content}$`}
+            fallback={cleanMath(`$${seg.content}$`)}
           />
         )
       })}
