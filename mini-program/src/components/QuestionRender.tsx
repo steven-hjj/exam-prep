@@ -1,6 +1,6 @@
 import { View, Text, Label, RadioGroup, Radio, CheckboxGroup, Checkbox, Input, Textarea } from '@tarojs/components'
 import type { Question } from '@/types'
-import { cleanMath } from '@/lib/math'
+import MathText from '@/components/MathText'
 
 const OPTION_LABEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
@@ -81,7 +81,7 @@ export default function QuestionRender({ question, index, value, onChange }: Pro
     <View className="card mt-4">
       <Text className="text-muted">第 {index + 1} 题</Text>
       <View style={{ marginTop: '12rpx' }}>
-        <Text style={{ fontSize: '32rpx', lineHeight: '1.6' }}>{cleanMath(q.stem)}</Text>
+        <MathText text={q.stem} fontSize="32rpx" />
       </View>
       {q.type === 'single' && renderOptions()}
       {q.type === 'multiple' && renderOptions()}
@@ -96,9 +96,9 @@ function LabelRadio({ label, text, value, checked }: { label: string; text: stri
   return (
     <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
       <Radio value={value} checked={checked} />
-      <Text style={{ marginLeft: '12rpx', fontSize: '30rpx' }}>
-        {label}. {cleanMath(text)}
-      </Text>
+      <View style={{ marginLeft: '12rpx', flex: 1 }}>
+        <MathText text={`${label}. ${text}`} fontSize="30rpx" />
+      </View>
     </Label>
   )
 }
@@ -107,9 +107,9 @@ function LabelCheckbox({ label, text, value, checked }: { label: string; text: s
   return (
     <Label style={{ display: 'flex', alignItems: 'center', padding: '16rpx 0' }}>
       <Checkbox value={value} checked={checked} />
-      <Text style={{ marginLeft: '12rpx', fontSize: '30rpx' }}>
-        {label}. {cleanMath(text)}
-      </Text>
+      <View style={{ marginLeft: '12rpx', flex: 1 }}>
+        <MathText text={`${label}. ${text}`} fontSize="30rpx" />
+      </View>
     </Label>
   )
 }
