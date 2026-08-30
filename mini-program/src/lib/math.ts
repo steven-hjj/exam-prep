@@ -93,10 +93,10 @@ export function cleanMath(text: string): string {
     s = s.split(k).join(symbolMap[k])
   })
 
-  // 处理分式 \frac{a}{b} -> a/b
-  s = s.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
-  s = s.replace(/\\dfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
-  s = s.replace(/\\tfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1/$2')
+  // 处理分式 \frac{a}{b} -> a⁄b
+  s = s.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1⁄$2')
+  s = s.replace(/\\dfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1⁄$2')
+  s = s.replace(/\\tfrac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, '$1⁄$2')
 
   // 处理根号 \sqrt{x} -> √(x)；\sqrt[n]{x} -> ⁿ√(x)
   s = s.replace(/\\sqrt\s*\{([^{}]+)\}/g, '√($1)')
@@ -116,19 +116,20 @@ export function cleanMath(text: string): string {
   s = s.replace(/\\binom\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, 'C($1,$2)')
   s = s.replace(/\\dbinom\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, 'C($1,$2)')
 
-  // 处理 \sum_{i=1}^{n} -> ∑(i=1 到 n)
-  s = s.replace(/\\sum\s*_\{([^{}]+)\}\s*\^\{([^{}]+)\}/g, (_, lo, hi) => `∑(${lo} 到 ${hi})`)
-  s = s.replace(/\\sum\s*_\{([^{}]+)\}/g, (_, lo) => `∑(${lo})`)
-  s = s.replace(/\\sum\s*\^\{([^{}]+)\}/g, (_, hi) => `∑(到 ${hi})`)
+  // 处理 \sum_{i=1}^{n} -> ∑ᵢ₌₁ⁿ
+  s = s.replace(/\\sum\s*_\{([^{}]+)\}\s*\^\{([^{}]+)\}/g, (_, lo, hi) => `∑${toSubscript(lo)}${toSuperscript(hi)}`)
+  s = s.replace(/\\sum\s*_\{([^{}]+)\}/g, (_, lo) => `∑${toSubscript(lo)}`)
+  s = s.replace(/\\sum\s*\^\{([^{}]+)\}/g, (_, hi) => `∑${toSuperscript(hi)}`)
 
-  // 处理 \int_{a}^{b} -> ∫(a 到 b)
-  s = s.replace(/\\int\s*_\{([^{}]+)\}\s*\^\{([^{}]+)\}/g, (_, lo, hi) => `∫(${lo} 到 ${hi})`)
-  s = s.replace(/\\int\s*_\{([^{}]+)\}/g, (_, lo) => `∫(${lo})`)
-  s = s.replace(/\\int\s*\^\{([^{}]+)\}/g, (_, hi) => `∫(到 ${hi})`)
+  // 处理 \int_{a}^{b} -> ∫ₐᵇ
+  s = s.replace(/\\int\s*_\{([^{}]+)\}\s*\^\{([^{}]+)\}/g, (_, lo, hi) => `∫${toSubscript(lo)}${toSuperscript(hi)}`)
+  s = s.replace(/\\int\s*_\{([^{}]+)\}/g, (_, lo) => `∫${toSubscript(lo)}`)
+  s = s.replace(/\\int\s*\^\{([^{}]+)\}/g, (_, hi) => `∫${toSuperscript(hi)}`)
 
-  // 处理 \lim_{x \to a} -> lim(x→a)
-  s = s.replace(/\\lim\s*_\{([^{}]+)\}/g, (_, x) => `lim(${x})`)
+  // 处理 \to 在 \lim 之前，确保极限里的箭头先转换
   s = s.replace(/\\to/g, '→')
+  // 处理 \lim_{x→a} -> lim(x→a)
+  s = s.replace(/\\lim\s*_\{([^{}]+)\}/g, (_, x) => `lim(${x})`)
 
   // 去掉多余空格
   s = s.replace(/\s+/g, ' ').trim()
