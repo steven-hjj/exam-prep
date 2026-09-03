@@ -88,6 +88,7 @@ export interface ExamSession {
   fullscreen: boolean
   paper: Question[]
   createdAt: number
+  expiresAt?: number
 }
 
 export interface ExamResultRow {

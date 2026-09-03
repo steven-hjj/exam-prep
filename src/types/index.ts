@@ -140,6 +140,8 @@ export interface ExamSession {
   /** 试卷快照（题目数组） */
   paper: Question[]
   createdAt: number
+  /** 考试码截止时间，过期后学生无法进入 */
+  expiresAt?: number
 }
 
 /** 学生交卷成绩 */

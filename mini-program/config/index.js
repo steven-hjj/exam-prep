@@ -24,7 +24,7 @@ const config = {
     828: 1.81 / 2,
   },
   sourceRoot: 'src',
-  outputRoot: 'dist-v24',
+  outputRoot: 'dist-v25',
   plugins: [],
   defineConstants: {
     'process.env.SUPABASE_URL': JSON.stringify(SUPABASE_URL),

@@ -87,6 +87,10 @@ create table if not exists exam_sessions (
 
 create index if not exists idx_exam_sessions_code on exam_sessions(code);
 
+-- 考试码有效期：创建时设置截止时间，过期后学生无法进入
+alter table exam_sessions add column if not exists expires_at timestamptz;
+create index if not exists idx_exam_sessions_expires on exam_sessions(expires_at);
+
 -- 学生成绩（匿名插入；仅老师本人可查）
 create table if not exists exam_results (
   id uuid primary key default gen_random_uuid(),

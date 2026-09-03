@@ -261,6 +261,7 @@ export function TeacherExamPage() {
   const [count, setCount] = useState(10)
   const [minutes, setMinutes] = useState(15)
   const [fullscreen, setFullscreen] = useState(true)
+  const [expiresHours, setExpiresHours] = useState(24)
   const [creating, setCreating] = useState(false)
 
   const [sessions, setSessions] = useState<ExamSession[]>([])
@@ -286,6 +287,7 @@ export function TeacherExamPage() {
         id: s.id, code: s.code, teacherId: s.teacher_id, title: s.title,
         minutes: s.minutes, fullscreen: s.fullscreen, paper: s.paper as Question[],
         createdAt: new Date(s.created_at).getTime(),
+        expiresAt: s.expires_at ? new Date(s.expires_at).getTime() : undefined,
       })),
     )
   }, [user])
@@ -328,6 +330,7 @@ export function TeacherExamPage() {
     }
     setCreating(true)
     const code = genCode()
+    const expiresAt = new Date(Date.now() + expiresHours * 60 * 60 * 1000)
     const { error } = await supabase.from('exam_sessions').insert({
       code,
       teacher_id: user.id,
@@ -335,6 +338,7 @@ export function TeacherExamPage() {
       minutes,
       fullscreen,
       paper: picked,
+      expires_at: expiresAt.toISOString(),
     })
     setCreating(false)
     if (error) {
@@ -347,7 +351,7 @@ export function TeacherExamPage() {
     // 直接展示二维码
     setQrFor({
       id: '', code, teacherId: user.id, title: title.trim() || '模拟考试',
-      minutes, fullscreen, paper: picked, createdAt: Date.now(),
+      minutes, fullscreen, paper: picked, createdAt: Date.now(), expiresAt: expiresAt.getTime(),
     })
   }
 
@@ -424,6 +428,13 @@ export function TeacherExamPage() {
             </Label>
             <Slider value={[minutes]} onValueChange={([v]) => setMinutes(v)} min={5} max={120} step={5} />
           </div>
+          <div className="space-y-2">
+            <Label>
+              考试码有效期：<span className="font-semibold text-primary">{expiresHours}</span> 小时
+            </Label>
+            <Slider value={[expiresHours]} onValueChange={([v]) => setExpiresHours(v)} min={1} max={168} step={1} />
+            <p className="text-xs text-muted-foreground">超过有效期后，学生输入考试码将无法进入考试</p>
+          </div>
           <div className="flex items-center justify-between rounded-xl border px-4 py-3 sm:col-span-2">
             <div>
               <p className="text-sm font-medium">学生端全屏防作弊</p>
@@ -448,33 +459,42 @@ export function TeacherExamPage() {
             </CardContent>
           </Card>
         )}
-        {sessions.map((s) => (
-          <Card key={s.id} className="transition-shadow hover:shadow-md">
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-5">
-              <div>
-                <p className="flex items-center gap-2 font-semibold">
-                  {s.title}
-                  <Badge variant="secondary" className="font-mono">{s.code}</Badge>
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {s.paper.length} 题 · {s.minutes} 分钟 · {new Date(s.createdAt).toLocaleString('zh-CN')}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => copyLink(s.code)}>
-                  {copied === s.code ? <Check className="mr-1 h-3.5 w-3.5 text-green-600" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
-                  复制考试码
-                </Button>
-                <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => setQrFor(s)}>
-                  <QrCode className="mr-1 h-3.5 w-3.5" /> 二维码
-                </Button>
-                <Button size="sm" className="cursor-pointer" onClick={() => setResultsFor(s)}>
-                  成绩（{s.code}）
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {sessions.map((s) => {
+          const isExpired = s.expiresAt ? Date.now() > s.expiresAt : false
+          return (
+            <Card key={s.id} className={`transition-shadow hover:shadow-md ${isExpired ? 'opacity-60' : ''}`}>
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-5">
+                <div>
+                  <p className="flex items-center gap-2 font-semibold">
+                    {s.title}
+                    <Badge variant="secondary" className="font-mono">{s.code}</Badge>
+                    {isExpired && <Badge variant="destructive" className="text-xs">已过期</Badge>}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {s.paper.length} 题 · {s.minutes} 分钟 · {new Date(s.createdAt).toLocaleString('zh-CN')}
+                  </p>
+                  {s.expiresAt && (
+                    <p className={`mt-0.5 text-xs ${isExpired ? 'text-red-500' : 'text-muted-foreground'}`}>
+                      截止：{new Date(s.expiresAt).toLocaleString('zh-CN')}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => copyLink(s.code)}>
+                    {copied === s.code ? <Check className="mr-1 h-3.5 w-3.5 text-green-600" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
+                    复制考试码
+                  </Button>
+                  <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => setQrFor(s)}>
+                    <QrCode className="mr-1 h-3.5 w-3.5" /> 二维码
+                  </Button>
+                  <Button size="sm" className="cursor-pointer" onClick={() => setResultsFor(s)}>
+                    成绩（{s.code}）
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* 二维码弹窗 */}

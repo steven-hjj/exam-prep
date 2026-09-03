@@ -43,6 +43,10 @@ function getCachedSession(code: string): ExamSession | null {
     sessionCache.delete(code)
     return null
   }
+  if (cached.data.expiresAt && Date.now() > cached.data.expiresAt) {
+    sessionCache.delete(code)
+    throw new MiniApiError('考试已截止，考试码已失效', 200, cached.data)
+  }
   return cached.data
 }
 
@@ -89,12 +93,18 @@ export async function fetchSessionByCode(code: string): Promise<ExamSession | nu
     throw new MiniApiError('考试数据结构错误：paper 不是题目数组', res.statusCode, row)
   }
 
+  const expiresAt = row.expires_at ? new Date(row.expires_at as string).getTime() : undefined
+  if (expiresAt && Date.now() > expiresAt) {
+    throw new MiniApiError('考试已截止，考试码已失效', res.statusCode, row)
+  }
+
   const session = {
     ...row,
     code: String(row.code ?? normalizedCode),
     teacherId: row.teacher_id as string,
     paper: paper as Question[],
     createdAt: new Date(row.created_at as string).getTime(),
+    expiresAt,
   } as ExamSession
 
   setCachedSession(normalizedCode, session)
