@@ -4,7 +4,7 @@ import { useState } from 'react'
 import './index.css'
 
 export default function ResultPage() {
-  const [data, setData] = useState({ total: 0, correct: 0, duration: 0, synced: 0 })
+  const [data, setData] = useState({ total: 0, correct: 0, duration: 0, synced: 0, answered: 0 })
 
   useLoad((query) => {
     setData({
@@ -12,6 +12,7 @@ export default function ResultPage() {
       correct: Number(query.correct) || 0,
       duration: Number(query.duration) || 0,
       synced: Number(query.synced) || 0,
+      answered: Number(query.answered) || 0,
     })
   })
 
@@ -33,7 +34,7 @@ export default function ResultPage() {
         </View>
         <View className="mt-2" style={{ textAlign: 'center' }}>
           <Text className="text-muted">
-            答对 {data.correct}/{data.total} 题 · 用时 {formatDuration(data.duration)}
+            答对 {data.correct}/{data.total} 题 · 已提交 {data.answered} 题答案 · 用时 {formatDuration(data.duration)}
           </Text>
         </View>
         {data.synced === 0 && (

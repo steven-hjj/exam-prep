@@ -24,6 +24,8 @@ export default function ExamPage() {
   const [remaining, setRemaining] = useState(0)
   const [violations, setViolations] = useState<Violation[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const submittedRef = useRef(false)
+  const answersRef = useRef<AnswerMap>({})
 
   // 防作弊追踪
   const lastHideAt = useRef(0)
@@ -179,14 +181,16 @@ export default function ExamPage() {
         fastAnswerCount.current = 0
       }
 
-      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
+      const nextAnswers = { ...answersRef.current, [currentQuestion.id]: value }
+      answersRef.current = nextAnswers
+      setAnswers(nextAnswers)
     },
     [currentQuestion],
   )
 
   const handleSubmit = useCallback(
     async (forced = false) => {
-      if (!session) return
+      if (!session || submittedRef.current) return
       if (!forced) {
         const res = await Taro.showModal({
           title: '确认交卷',
@@ -195,11 +199,20 @@ export default function ExamPage() {
         if (!res.confirm) return
       }
 
+      submittedRef.current = true
       setSubmitting(true)
       const info = getStudentInfo()
+      const submissionId = `${session.code}_${info.studentId || 'unknown'}_${Date.now()}`
+      const answerSnapshot = { ...answersRef.current }
+      // 兼容兜底：同时按题号索引保存一份，避免题目 id 在不同端不一致导致无法匹配
+      session.paper.forEach((q, i) => {
+        if (answerSnapshot[q.id] !== undefined) {
+          answerSnapshot[String(i + 1)] = answerSnapshot[q.id]
+        }
+      })
       let correct = 0
       session.paper.forEach((q) => {
-        if (isObjective(q) && gradeQuestion(q, answers[q.id])) {
+        if (isObjective(q) && gradeQuestion(q, answerSnapshot[q.id])) {
           correct += 1
         }
       })
@@ -220,22 +233,24 @@ export default function ExamPage() {
         duration,
         violations,
         finishedAt: Date.now(),
-        answers,
+        answers: answerSnapshot,
+        submissionId,
       }
       saveLocalResult(result)
       saveReviewData({
         session,
-        answers,
+        answers: answerSnapshot,
         correct,
         duration,
         violations: violations.length,
         finishedAt: Date.now(),
       })
-      const ok = await submitExamResult(result, session.teacherId)
+      const ok = await submitExamResult(result, session.teacherId, submissionId)
       setSubmitting(false)
       Taro.removeStorageSync('current_session')
+      const answeredCountSnapshot = Object.keys(answerSnapshot).filter((k) => !/^\d+$/.test(k)).length
       Taro.redirectTo({
-        url: `/pages/result/index?total=${session.paper.length}&correct=${correct}&duration=${duration}&synced=${ok ? 1 : 0}`,
+        url: `/pages/result/index?total=${session.paper.length}&correct=${correct}&duration=${duration}&synced=${ok ? 1 : 0}&answered=${answeredCountSnapshot}`,
       })
     },
     [session, answeredCount, answers, startAt, violations, currentQuestion],

@@ -1,6 +1,6 @@
 import { View, Text, Label, RadioGroup, Radio, CheckboxGroup, Checkbox, Input, Textarea } from '@tarojs/components'
 import { memo, useCallback } from 'react'
-import type { Question } from '@/types'
+import { TYPE_LABEL, type Question } from '@/types'
 import MathText from '@/components/MathText'
 
 const OPTION_LABEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -146,7 +146,12 @@ export default memo(function QuestionRender({ question, index, value, onChange }
 
   return (
     <View className="card mt-4">
-      <Text className="text-muted">第 {index + 1} 题</Text>
+      <View style={{ display: 'flex', alignItems: 'center', gap: '12rpx' }}>
+        <Text className="text-muted">第 {index + 1} 题</Text>
+        <Text style={{ padding: '4rpx 12rpx', borderRadius: '999rpx', background: '#eef2ff', color: '#3730a3', fontSize: '24rpx', fontWeight: 600 }}>
+          {TYPE_LABEL[q.type] ?? '题目'}
+        </Text>
+      </View>
       <View style={{ marginTop: '12rpx' }}>
         <MathText text={q.stem} fontSize="32rpx" />
       </View>

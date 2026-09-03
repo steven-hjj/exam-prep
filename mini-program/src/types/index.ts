@@ -43,7 +43,7 @@ export const TYPE_LABEL: Record<QuestionType, string> = {
 }
 
 export interface Violation {
-  type: 'blur' | 'hidden' | 'copy' | 'shortcut' | 'contextmenu' | 'fullscreen-exit' | 'navigation' | 'absence' | 'rapid-switch' | 'fast-answer' | 'suspicious-pattern'
+  type: 'blur' | 'hidden' | 'copy' | 'shortcut' | 'contextmenu' | 'fullscreen-exit' | 'navigation' | 'absence' | 'rapid-switch' | 'fast-answer' | 'suspicious-pattern' | 'resize'
   label: string
   time: number
   meta?: Record<string, unknown>
@@ -102,6 +102,7 @@ export interface ExamResultRow {
   violations: Violation[]
   finishedAt: number
   answers?: AnswerMap
+  submissionId?: string
 }
 
 export type PlanType = 'free' | 'teacher' | 'school'

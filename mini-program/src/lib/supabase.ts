@@ -12,6 +12,17 @@ const headers = {
 const REQUEST_TIMEOUT = 15000
 const MAX_RETRY = 3
 
+export class MiniApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode?: number,
+    public readonly body?: unknown,
+  ) {
+    super(message)
+    this.name = 'MiniApiError'
+  }
+}
+
 function getAuthHeaders() {
   return headers
 }
@@ -40,47 +51,61 @@ function setCachedSession(code: string, data: ExamSession): void {
 }
 
 export async function fetchSessionByCode(code: string): Promise<ExamSession | null> {
-  const cached = getCachedSession(code)
+  const normalizedCode = code.trim().toUpperCase()
+  const cached = getCachedSession(normalizedCode)
   if (cached) return cached
 
-  try {
-    const res = await Taro.request({
-      url: `${SUPABASE_URL}/rest/v1/exam_sessions?code=eq.${encodeURIComponent(code)}&select=*`,
-      method: 'GET',
-      header: getAuthHeaders(),
-      timeout: REQUEST_TIMEOUT,
-    })
+  const res = await Taro.request({
+    url: `${SUPABASE_URL}/rest/v1/exam_sessions?code=eq.${encodeURIComponent(normalizedCode)}&select=*`,
+    method: 'GET',
+    header: getAuthHeaders(),
+    timeout: REQUEST_TIMEOUT,
+  })
 
-    let data: unknown = res.data
-    if (typeof data === 'string') {
-      try {
-        data = JSON.parse(data)
-      } catch {
-        return null
-      }
+  let data: unknown = res.data
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data)
+    } catch {
+      throw new MiniApiError('考试接口返回的不是有效 JSON', res.statusCode, res.data)
     }
+  }
 
-    if (res.statusCode !== 200 || !Array.isArray(data) || data.length === 0) {
-      return null
-    }
+  if (res.statusCode !== 200) {
+    throw new MiniApiError('考试接口请求失败', res.statusCode, data)
+  }
 
-    const row = data[0] as Record<string, unknown>
-    const session = {
-      ...row,
-      teacherId: row.teacher_id as string,
-      paper: row.paper as Question[],
-      createdAt: new Date(row.created_at as string).getTime(),
-    } as ExamSession
+  if (!Array.isArray(data)) {
+    throw new MiniApiError('考试接口返回结构错误：预期为数组', res.statusCode, data)
+  }
 
-    setCachedSession(code, session)
-    return session
-  } catch (e) {
-    console.error('fetchSessionByCode error', e)
+  if (data.length === 0) {
     return null
   }
+
+  const row = data[0] as Record<string, unknown>
+  const paper = row.paper
+  if (!Array.isArray(paper)) {
+    throw new MiniApiError('考试数据结构错误：paper 不是题目数组', res.statusCode, row)
+  }
+
+  const session = {
+    ...row,
+    code: String(row.code ?? normalizedCode),
+    teacherId: row.teacher_id as string,
+    paper: paper as Question[],
+    createdAt: new Date(row.created_at as string).getTime(),
+  } as ExamSession
+
+  setCachedSession(normalizedCode, session)
+  return session
 }
 
-export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId: string): Promise<boolean> {
+export async function submitExamResult(
+  row: Omit<ExamResultRow, 'id'>,
+  teacherId: string,
+  submissionId?: string,
+): Promise<boolean> {
   const payload = {
     session_code: row.sessionCode,
     teacher_id: teacherId,
@@ -93,6 +118,7 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId
     violations: row.violations,
     finished_at: new Date(row.finishedAt).toISOString(),
     answers: row.answers || null,
+    submission_id: submissionId || null,
   }
 
   for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
@@ -109,6 +135,12 @@ export async function submitExamResult(row: Omit<ExamResultRow, 'id'>, teacherId
       })
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        return true
+      }
+
+      if (res.statusCode === 409) {
+        // 唯一约束冲突说明已提交过，视为成功
+        console.warn('submitExamResult conflict, treat as success')
         return true
       }
 

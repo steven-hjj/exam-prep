@@ -132,12 +132,59 @@ function ResultDetailsDialog({ result, open, onOpenChange }: { result: ExamResul
     return String(q.answer)
   }
 
-  const getUserAnswerText = (q: Question): string => {
-    const userAnswer = result.answers?.[q.id]
-    if (userAnswer === undefined || userAnswer === '') return '未作答'
+  const getAnswerKeys = (): string[] => {
+    if (!result.answers || Array.isArray(result.answers)) return []
+    return Object.keys(result.answers)
+  }
+
+  const getUserAnswerWithSource = (
+    q: Question,
+    index: number,
+  ): { value: string | string[] | undefined; source: 'id' | 'index' | 'none' } => {
+    const raw = result.answers
+    if (!raw) return { value: undefined, source: 'none' }
+    if (Array.isArray(raw)) return { value: raw[index] as string | string[] | undefined, source: 'index' }
+
+    const byId = raw[q.id]
+    if (byId !== undefined) return { value: byId, source: 'id' }
+
+    const fallbackKeys = [String(index + 1), String(index), `q${index + 1}`, `question_${index + 1}`]
+    for (const key of fallbackKeys) {
+      if (raw[key] !== undefined) return { value: raw[key], source: 'index' }
+    }
+    return { value: undefined, source: 'none' }
+  }
+
+  const getUserAnswer = (q: Question, index: number): string | string[] | undefined => {
+    return getUserAnswerWithSource(q, index).value
+  }
+
+  const isNonEmptyAnswer = (value: string | string[] | undefined): boolean => {
+    if (Array.isArray(value)) return value.length > 0
+    return value !== undefined && value !== ''
+  }
+
+  const getUserAnswerText = (q: Question, index: number): string => {
+    const userAnswer = getUserAnswer(q, index)
+    if (!isNonEmptyAnswer(userAnswer)) return '未作答'
     if (Array.isArray(userAnswer)) return userAnswer.join('；')
     return String(userAnswer)
   }
+
+  const answerKeys = getAnswerKeys()
+
+  const matchStats = session
+    ? session.paper.reduce(
+        (acc, q, i) => {
+          const { source } = getUserAnswerWithSource(q, i)
+          if (source === 'id') acc.byId += 1
+          else if (source === 'index') acc.byIndex += 1
+          else acc.unmatched += 1
+          return acc
+        },
+        { byId: 0, byIndex: 0, unmatched: 0 },
+      )
+    : { byId: 0, byIndex: 0, unmatched: 0 }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,10 +200,19 @@ function ResultDetailsDialog({ result, open, onOpenChange }: { result: ExamResul
           <p className="py-6 text-center text-sm text-muted-foreground">无法加载试卷信息</p>
         ) : (
           <div className="space-y-4 py-2">
+            <div className={`rounded-lg border px-3 py-2 text-xs ${answerKeys.length === 0 ? 'border-red-200 bg-red-50 text-red-700' : 'bg-muted/40 text-muted-foreground'}`}>
+              <p className="font-medium">已收到答案字段：{answerKeys.length} 个</p>
+              {answerKeys.length > 0 && (
+                <p className="mt-1">按题目 ID 匹配：{matchStats.byId} 题；按题号兜底：{matchStats.byIndex} 题；未匹配：{matchStats.unmatched} 题。键示例：{answerKeys.slice(0, 6).join(', ')}{answerKeys.length > 6 ? '…' : ''}</p>
+              )}
+              {answerKeys.length === 0 && (
+                <p className="mt-1">说明数据库中该条成绩没有 answers 字段。请确认：① 小程序交卷时结果页显示“已提交 X 题答案”；② Supabase 已执行 `alter table exam_results add column if not exists answers jsonb;`。</p>
+              )}
+            </div>
             {session.paper.map((q, i) => {
-              const userAnswer = result.answers?.[q.id]
+              const userAnswer = getUserAnswer(q, i)
               const isCorrect = isObjective(q) && gradeQuestion(q, userAnswer)
-              const isAnswered = userAnswer !== undefined && userAnswer !== ''
+              const isAnswered = isNonEmptyAnswer(userAnswer)
 
               return (
                 <div key={q.id} className={`rounded-lg border p-4 ${isCorrect ? 'border-green-200 bg-green-50' : isAnswered ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
@@ -171,7 +227,7 @@ function ResultDetailsDialog({ result, open, onOpenChange }: { result: ExamResul
                     <p className="whitespace-pre-wrap">{q.stem}</p>
                   </div>
                   <div className="mt-3 space-y-1 text-sm">
-                    <p><span className="text-muted-foreground">学生答案：</span>{getUserAnswerText(q)}</p>
+                    <p><span className="text-muted-foreground">学生答案：</span>{getUserAnswerText(q, i)}</p>
                     <p><span className="text-muted-foreground">正确答案：</span><span className="text-green-600">{getAnswerText(q)}</span></p>
                   </div>
                   {q.analysis && (
@@ -257,6 +313,7 @@ export function TeacherExamPage() {
             studentId: r.student_id ?? '', studentPhone: r.student_phone ?? '',
             total: r.total, correct: r.correct, duration: r.duration,
             violations: r.violations ?? [], finishedAt: new Date(r.finished_at).getTime(),
+            answers: r.answers ?? {},
           })),
         )
       })
@@ -406,7 +463,7 @@ export function TeacherExamPage() {
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => copyLink(s.code)}>
                   {copied === s.code ? <Check className="mr-1 h-3.5 w-3.5 text-green-600" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
-                  复制链接
+                  复制考试码
                 </Button>
                 <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => setQrFor(s)}>
                   <QrCode className="mr-1 h-3.5 w-3.5" /> 二维码

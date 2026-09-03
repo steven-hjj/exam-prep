@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, Input, Button } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { fetchSessionByCode } from '@/lib/supabase'
+import Taro, { useLoad } from '@tarojs/taro'
+import { MiniApiError, fetchSessionByCode } from '@/lib/supabase'
 import { getStudentInfo, setStudentInfo } from '@/lib/store'
 import './index.css'
 
@@ -9,6 +9,19 @@ export default function IndexPage() {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [info, setInfo] = useState(getStudentInfo())
+
+  useLoad((options) => {
+    const routeCode = typeof options.code === 'string' ? options.code : ''
+    if (routeCode) setCode(routeCode.trim().toUpperCase())
+  })
+
+  useEffect(() => {
+    const launchOptions = Taro.getLaunchOptionsSync?.()
+    const queryCode = launchOptions?.query?.code
+    if (typeof queryCode === 'string' && queryCode.trim()) {
+      setCode(queryCode.trim().toUpperCase())
+    }
+  }, [])
 
   const handleJoin = async () => {
     const trimmed = code.trim().toUpperCase()
@@ -22,7 +35,15 @@ export default function IndexPage() {
     }
     setStudentInfo(info)
     setLoading(true)
-    const session = await fetchSessionByCode(trimmed)
+    let session = null
+    try {
+      session = await fetchSessionByCode(trimmed)
+    } catch (e) {
+      const detail = e instanceof MiniApiError && e.statusCode ? `${e.message}（${e.statusCode}）` : '无法连接考试接口'
+      Taro.showModal({ title: '加载考试失败', content: detail, showCancel: false })
+      setLoading(false)
+      return
+    }
     setLoading(false)
     if (!session) {
       Taro.showToast({ title: '考试码不存在或已失效', icon: 'none' })

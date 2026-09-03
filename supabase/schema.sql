@@ -105,6 +105,12 @@ create table if not exists exam_results (
 -- v0.9：已建表的老库补列（重复执行安全）
 alter table exam_results add column if not exists student_id text not null default '';
 alter table exam_results add column if not exists student_phone text default '';
+alter table exam_results add column if not exists answers jsonb;
+
+-- 防止学生因网络超时重复提交：用客户端生成的 submission_id 做唯一约束
+alter table exam_results add column if not exists submission_id text;
+alter table exam_results drop constraint if exists exam_results_submission_id_key;
+alter table exam_results add constraint exam_results_submission_id_key unique (submission_id);
 
 create index if not exists idx_exam_results_session on exam_results(session_code);
 
